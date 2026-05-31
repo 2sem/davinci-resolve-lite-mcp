@@ -35,6 +35,65 @@ DEFAULT_HOST = os.environ.get("DAVINCI_MCP_HOST", "127.0.0.1")
 DEFAULT_PORT = int(os.environ.get("DAVINCI_MCP_PORT", "8765"))
 PORT_SCAN_RANGE = 20  # if DEFAULT_PORT is busy, try the next N ports
 
+# The Resolve Console may be closed when the script is launched from the menu,
+# so the startup guide is also written here. tempfile keeps it sandbox-safe.
+import tempfile  # noqa: E402
+
+LOG_PATH = os.path.join(tempfile.gettempdir(), "davinci-resolve-lite-mcp.log")
+
+
+def log(message=""):
+    """Print to the Resolve Console and append to the logfile."""
+    print(message)
+    sys.stdout.flush()
+    try:
+        with open(LOG_PATH, "a", encoding="utf-8") as handle:
+            handle.write(message + "\n")
+    except OSError:
+        pass
+
+
+def log_startup_guide(server_name, version, how, resolve, url, log_path):
+    """Emit the full connect-from-Claude guide on launch."""
+    add_cmd = f"claude mcp add --transport http davinci {url}"
+    lines = [
+        "",
+        "=" * 64,
+        f"  {server_name} v{version}",
+        "=" * 64,
+        f"  Connected to Resolve via : {how}",
+        f"  Product                  : {resolve.GetProductName()} "
+        f"{resolve.GetVersionString()}",
+        f"  MCP endpoint             : {url}",
+        f"  Log file                 : {log_path}",
+        "-" * 64,
+        "  HOW TO CONNECT FROM CLAUDE CODE",
+        "",
+        "  1) Keep DaVinci Resolve open with this script running",
+        "     (this Console window). Quitting Resolve stops the server.",
+        "",
+        "  2) In a terminal, register the server with Claude Code:",
+        "",
+        f"       {add_cmd}",
+        "",
+        "  3) Verify it is connected:",
+        "",
+        "       claude mcp list",
+        "",
+        "  4) In Claude Code, just ask it to control Resolve, e.g.:",
+        '       "What timeline is open in DaVinci Resolve?"',
+        '       "Export the current frame to ~/Desktop/frame.png"',
+        "",
+        "  Other MCP clients: point them at the endpoint above using the",
+        "  Streamable HTTP transport (POST JSON-RPC to /mcp).",
+        "-" * 64,
+        "  Server running. Leave Resolve open. Quit Resolve to stop.",
+        "=" * 64,
+        "",
+    ]
+    for line in lines:
+        log(line)
+
 
 # --------------------------------------------------------------------------
 # Resolve connection
@@ -754,8 +813,8 @@ def start_http_server(host, port, dispatcher):
 def main():
     resolve, how = get_resolve()
     if not resolve:
-        print("[davinci-mcp] ERROR: could not connect to DaVinci Resolve.")
-        print("[davinci-mcp] Run this from Workspace > Scripts inside Resolve.")
+        log("[davinci-mcp] ERROR: could not connect to DaVinci Resolve.")
+        log("[davinci-mcp] Launch this from Workspace > Scripts > Edit inside Resolve.")
         return
 
     bridge = ResolveBridge(resolve)
@@ -763,18 +822,7 @@ def main():
     server, port = start_http_server(DEFAULT_HOST, DEFAULT_PORT, dispatcher)
     url = f"http://{DEFAULT_HOST}:{port}/mcp"
 
-    print("=" * 60)
-    print(f"  {SERVER_NAME} v{SERVER_VERSION}")
-    print(f"  Connected to Resolve via: {how}")
-    print(f"  Product: {resolve.GetProductName()} {resolve.GetVersionString()}")
-    print("-" * 60)
-    print(f"  MCP endpoint:  {url}")
-    print("  Add to Claude Code:")
-    print(f"    claude mcp add --transport http davinci {url}")
-    print("-" * 60)
-    print("  Server running. Quit DaVinci Resolve to stop it.")
-    print("=" * 60)
-    sys.stdout.flush()
+    log_startup_guide(SERVER_NAME, SERVER_VERSION, how, resolve, url, LOG_PATH)
 
     http_thread = threading.Thread(target=server.serve_forever, name="mcp-http", daemon=True)
     http_thread.start()
@@ -785,8 +833,12 @@ def main():
         pass
     finally:
         server.shutdown()
-        print("[davinci-mcp] Server stopped.")
+        log("[davinci-mcp] Server stopped.")
 
 
-if __name__ == "__main__":
+# Resolve runs menu scripts via exec; __name__ is not always "__main__".
+# Fire main() on direct run OR when launched inside Resolve (global `resolve`
+# is injected by the menu runtime). The test harness imports under a different
+# module name with no `resolve` global, so it stays inert.
+if __name__ == "__main__" or globals().get("resolve") is not None:
     main()
