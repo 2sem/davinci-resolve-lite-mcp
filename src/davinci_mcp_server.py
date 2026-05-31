@@ -721,6 +721,13 @@ def _build_tools():
     )
     def export_timeline(resolve, args):
         tl = _require_timeline(resolve)
+        path = os.path.expanduser(args["filePath"])
+        directory = os.path.dirname(path)
+        if directory:
+            try:
+                os.makedirs(directory, exist_ok=True)
+            except OSError as exc:
+                raise ToolError(f"Could not create directory {directory!r}: {exc}")
         type_map = {
             "AAF": resolve.EXPORT_AAF,
             "EDL": resolve.EXPORT_EDL,
@@ -729,10 +736,10 @@ def _build_tools():
             "OTIO": resolve.EXPORT_OTIO,
         }
         etype = type_map.get(args["exportType"])
-        ok = tl.Export(args["filePath"], etype, resolve.EXPORT_NONE)
+        ok = tl.Export(path, etype, resolve.EXPORT_NONE)
         if not ok:
             raise ToolError("Timeline Export failed.")
-        return {"ok": True, "filePath": args["filePath"]}
+        return {"ok": True, "filePath": path}
 
     return tools
 

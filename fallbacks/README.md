@@ -14,3 +14,4 @@ Format per entry: **Symptom → Cause → Fix → Commit**.
 | 05 | Connecting to the Resolve object from a menu script | [05-resolve-connection.md](05-resolve-connection.md) |
 | 06 | `ExportCurrentFrameAsStill` fails when dir missing | [06-export-makedirs.md](06-export-makedirs.md) |
 | 07 | Resolve API calls off the main thread | [07-thread-safety.md](07-thread-safety.md) |
+| 08 | `export_timeline` fails with a `~` path | [08-export-timeline-expanduser.md](08-export-timeline-expanduser.md) |
