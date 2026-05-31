@@ -35,10 +35,11 @@ DEFAULT_HOST = os.environ.get("DAVINCI_MCP_HOST", "127.0.0.1")
 DEFAULT_PORT = int(os.environ.get("DAVINCI_MCP_PORT", "8765"))
 PORT_SCAN_RANGE = 20  # if DEFAULT_PORT is busy, try the next N ports
 
-# DaVinci Resolve does NOT reliably surface a menu script's print() output in
-# the Console, so everything is mirrored to a logfile. The Lite app is
-# sandboxed; ~/Movies is writable from inside it (the assets.movies entitlement)
-# and is easy for the user to find, so it is the primary log location.
+# Menu scripts DO print to the Resolve Console. But this server runs forever,
+# and a long-running script's stdout can buffer/stay hidden until it exits, so
+# we ALSO mirror every line to a logfile (and flush stdout each line). The Lite
+# app is sandboxed; ~/Movies is writable from inside it (the assets.movies
+# entitlement) and is easy to find, so it is the primary log location.
 import tempfile  # noqa: E402
 import time  # noqa: E402
 
@@ -899,6 +900,13 @@ def start_http_server(host, port, dispatcher):
 
 
 def main():
+    # Line-buffer stdout so each line reaches the Resolve Console immediately
+    # rather than sitting in a block buffer while the server runs.
+    try:
+        sys.stdout.reconfigure(line_buffering=True)  # Python 3.7+
+    except Exception:  # noqa: BLE001
+        pass
+
     resolve, how = get_resolve()
     if not resolve:
         log("[davinci-mcp] ERROR: could not connect to DaVinci Resolve.")

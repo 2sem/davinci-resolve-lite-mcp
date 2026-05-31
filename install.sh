@@ -50,6 +50,7 @@ echo "       claude mcp add --transport http davinci http://127.0.0.1:8765/mcp"
 echo "  4. Stop:   Workspace > Scripts > Edit > stop_davinci_mcp_server"
 echo "             (or ./stop.sh, or quit Resolve)"
 echo
-echo "Resolve hides menu-script output, so logs are written to a file:"
+echo "Output prints to the Resolve Console, and is also mirrored to a logfile"
+echo "(the server runs continuously, so Console output may buffer):"
 echo "  $HOME/Movies/davinci-resolve-lite-mcp.log"
 echo "  View live with:  ./logs.sh"

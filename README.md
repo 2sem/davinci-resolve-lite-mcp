@@ -60,9 +60,9 @@ automatically).
      claude mcp add --transport http davinci http://127.0.0.1:8765/mcp
    ```
 
-   > **Resolve hides menu-script output.** DaVinci Resolve does not reliably
-   > print menu-launched script output to its Console, so both scripts also
-   > write to a logfile:
+   > The startup guide prints to the Resolve Console (Workspace > Console).
+   > Because the server runs continuously, its Console output can buffer until
+   > it stops, so both scripts also mirror every line to a logfile:
    >
    > ```
    > ~/Movies/davinci-resolve-lite-mcp.log
