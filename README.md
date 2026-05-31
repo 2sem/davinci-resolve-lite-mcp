@@ -60,6 +60,18 @@ automatically).
      claude mcp add --transport http davinci http://127.0.0.1:8765/mcp
    ```
 
+   > **Resolve hides menu-script output.** DaVinci Resolve does not reliably
+   > print menu-launched script output to its Console, so both scripts also
+   > write to a logfile:
+   >
+   > ```
+   > ~/Movies/davinci-resolve-lite-mcp.log
+   > ```
+   >
+   > Watch it live with `./logs.sh`. (Override the directory with
+   > `DAVINCI_MCP_LOG_DIR`.) `~/Movies` is used because the sandboxed Lite app
+   > is allowed to write there.
+
 3. Register it with Claude Code:
 
    ```bash

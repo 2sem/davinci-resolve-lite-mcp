@@ -35,20 +35,57 @@ DEFAULT_HOST = os.environ.get("DAVINCI_MCP_HOST", "127.0.0.1")
 DEFAULT_PORT = int(os.environ.get("DAVINCI_MCP_PORT", "8765"))
 PORT_SCAN_RANGE = 20  # if DEFAULT_PORT is busy, try the next N ports
 
-# The Resolve Console may be closed when the script is launched from the menu,
-# so the startup guide is also written here. tempfile keeps it sandbox-safe.
+# DaVinci Resolve does NOT reliably surface a menu script's print() output in
+# the Console, so everything is mirrored to a logfile. The Lite app is
+# sandboxed; ~/Movies is writable from inside it (the assets.movies entitlement)
+# and is easy for the user to find, so it is the primary log location.
 import tempfile  # noqa: E402
+import time  # noqa: E402
 
-LOG_PATH = os.path.join(tempfile.gettempdir(), "davinci-resolve-lite-mcp.log")
+LOG_FILENAME = "davinci-resolve-lite-mcp.log"
+
+
+def _real_home():
+    """Real home dir even under the sandbox (HOME is redirected there)."""
+    try:
+        import pwd  # noqa: WPS433
+
+        return pwd.getpwuid(os.getuid()).pw_dir
+    except Exception:  # noqa: BLE001
+        return os.path.expanduser("~")
+
+
+def _resolve_log_path():
+    candidates = [
+        os.environ.get("DAVINCI_MCP_LOG_DIR"),
+        os.path.join(_real_home(), "Movies"),
+        tempfile.gettempdir(),
+    ]
+    for directory in candidates:
+        if not directory:
+            continue
+        try:
+            os.makedirs(directory, exist_ok=True)
+            path = os.path.join(directory, LOG_FILENAME)
+            with open(path, "a", encoding="utf-8"):
+                pass
+            return path
+        except OSError:
+            continue
+    return os.path.join(tempfile.gettempdir(), LOG_FILENAME)
+
+
+LOG_PATH = _resolve_log_path()
 
 
 def log(message=""):
-    """Print to the Resolve Console and append to the logfile."""
+    """Print to the Resolve Console and append to the logfile (timestamped)."""
     print(message)
     sys.stdout.flush()
     try:
         with open(LOG_PATH, "a", encoding="utf-8") as handle:
-            handle.write(message + "\n")
+            stamp = time.strftime("%Y-%m-%d %H:%M:%S")
+            handle.write(f"{stamp}  {message}\n")
     except OSError:
         pass
 
