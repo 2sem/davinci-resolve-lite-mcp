@@ -805,9 +805,30 @@ class MCPDispatcher:
         args = params.get("arguments") or {}
         spec = TOOLS.get(name)
         if not spec:
+            log(f"[davinci-mcp] call: {name} -> unknown tool")
             raise ToolError(f"Unknown tool: {name}")
         handler = spec["handler"]
-        result = self.bridge.call(lambda r: handler(r, args))
+
+        arg_str = json.dumps(args, ensure_ascii=False) if args else "{}"
+        if len(arg_str) > 200:
+            arg_str = arg_str[:200] + "…"
+
+        # Log on the main thread (inside the queued job) so Console writes share
+        # the same single-thread discipline as the Resolve API calls.
+        def job(resolve):
+            log(f"[davinci-mcp] call: {name} {arg_str}")
+            try:
+                value = handler(resolve, args)
+            except ToolError as exc:
+                log(f"[davinci-mcp]   -> error: {exc}")
+                raise
+            except Exception as exc:  # noqa: BLE001
+                log(f"[davinci-mcp]   -> EXCEPTION: {exc}")
+                raise
+            log(f"[davinci-mcp]   -> ok")
+            return value
+
+        result = self.bridge.call(job)
         return {
             "content": [
                 {"type": "text", "text": json.dumps(result, indent=2, ensure_ascii=False)}
