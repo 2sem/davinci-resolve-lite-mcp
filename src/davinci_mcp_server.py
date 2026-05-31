@@ -87,9 +87,10 @@ def log_startup_guide(server_name, version, how, resolve, url, log_path):
         "  Other MCP clients: point them at the endpoint above using the",
         "  Streamable HTTP transport (POST JSON-RPC to /mcp).",
         "-" * 64,
-        "  Server running. To STOP it without quitting Resolve, run:",
+        "  Server running. To STOP it without quitting Resolve:",
         "",
-        "       ./stop.sh            (or quit Resolve)",
+        "    Workspace > Scripts > Edit > stop_davinci_mcp_server",
+        "    (or run ./stop.sh in a terminal, or quit Resolve)",
         "=" * 64,
         "",
     ]

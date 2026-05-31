@@ -8,6 +8,7 @@ set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVER_SRC="$REPO_DIR/src/davinci_mcp_server.py"
+STOP_SRC="$REPO_DIR/src/stop_davinci_mcp_server.py"
 
 # DaVinci Resolve Lite (App Store, sandboxed) stores Fusion scripts in its
 # container. The non-Lite/Studio build uses the plain Application Support path.
@@ -26,21 +27,25 @@ else
   exit 1
 fi
 
-if [[ ! -f "$SERVER_SRC" ]]; then
-  echo "Server source not found: $SERVER_SRC"
-  exit 1
-fi
+for src in "$SERVER_SRC" "$STOP_SRC"; do
+  if [[ ! -f "$src" ]]; then
+    echo "Source not found: $src"
+    exit 1
+  fi
+done
 
 mkdir -p "$TARGET_DIR"
-LINK="$TARGET_DIR/davinci_mcp_server.py"
-ln -sf "$SERVER_SRC" "$LINK"
-
-echo "Symlinked:"
-echo "  $LINK"
-echo "  -> $SERVER_SRC"
+echo "Symlinked into: $TARGET_DIR"
+for src in "$SERVER_SRC" "$STOP_SRC"; do
+  link="$TARGET_DIR/$(basename "$src")"
+  ln -sf "$src" "$link"
+  echo "  $(basename "$link")  ->  $src"
+done
 echo
 echo "Next steps:"
-echo "  1. In DaVinci Resolve: Workspace > Scripts > Edit > davinci_mcp_server"
+echo "  1. Start:  Workspace > Scripts > Edit > davinci_mcp_server"
 echo "  2. The Console (Workspace > Console) prints the MCP endpoint + port."
 echo "  3. Register with Claude Code, e.g.:"
 echo "       claude mcp add --transport http davinci http://127.0.0.1:8765/mcp"
+echo "  4. Stop:   Workspace > Scripts > Edit > stop_davinci_mcp_server"
+echo "             (or ./stop.sh, or quit Resolve)"

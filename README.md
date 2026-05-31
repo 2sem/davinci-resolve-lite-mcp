@@ -70,14 +70,14 @@ automatically).
 
 ### Stopping
 
-Quit DaVinci Resolve, **or** stop the server without quitting Resolve:
+Any of these stops the server:
 
-```bash
-./stop.sh
-```
+* **From the menu:** Workspace > Scripts > Edit > **stop_davinci_mcp_server**
+* **From a terminal:** `./stop.sh`
+* **Quit DaVinci Resolve**
 
-`stop.sh` POSTs to the server's `/shutdown` endpoint, scanning the same port
-range the server uses on startup.
+The menu stop script and `stop.sh` both POST to the server's `/shutdown`
+endpoint, scanning the same port range the server uses on startup.
 
 > The port auto-increments from `8765` if that port is busy. Override the
 > default with the `DAVINCI_MCP_PORT` / `DAVINCI_MCP_HOST` environment
