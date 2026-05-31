@@ -141,12 +141,37 @@ def log_startup_guide(server_name, version, how, resolve, url, log_path):
 def get_resolve():
     """Return (resolve, how) or (None, None).
 
-    Menu-launched scripts already expose a global ``resolve``; prefer it.
-    Fall back to importing DaVinciResolveScript for console / external use.
+    Resolve injects the scripting objects into the ``__main__`` namespace of a
+    menu-launched script (``resolve``, or ``bmd`` / ``app`` / ``fu``), so look
+    there first. This mirrors the proven pattern from the reference helper
+    ``_resolve_menu_helpers.py``. Fall back to importing DaVinciResolveScript
+    for the Console / external use.
     """
-    obj = globals().get("resolve")
+    import __main__  # noqa: WPS433
+
+    obj = getattr(__main__, "resolve", None)
     if obj:
-        return obj, "global resolve"
+        return obj, "__main__.resolve"
+
+    bmd = getattr(__main__, "bmd", None)
+    if bmd:
+        try:
+            obj = bmd.scriptapp("Resolve")
+            if obj:
+                return obj, "__main__.bmd.scriptapp(Resolve)"
+        except Exception:  # noqa: BLE001
+            pass
+
+    for global_name in ("app", "fu"):
+        host = getattr(__main__, global_name, None)
+        get_resolve_fn = getattr(host, "GetResolve", None) if host else None
+        if callable(get_resolve_fn):
+            try:
+                obj = get_resolve_fn()
+                if obj:
+                    return obj, f"__main__.{global_name}.GetResolve()"
+            except Exception:  # noqa: BLE001
+                pass
 
     module_paths = [
         "/Applications/DaVinci Resolve.app/Contents/Resources/Developer/Scripting/Modules",
@@ -582,11 +607,28 @@ def _build_tools():
     )
     def export_current_frame_as_still(resolve, args):
         project = _require_project(resolve)
-        path = args["filePath"]
+        timeline = _require_timeline(resolve)
+        path = os.path.expanduser(args["filePath"])
+        # Mirror the reference flow (08_export_current_frame): ensure the output
+        # directory exists, capture the timecode, then export.
+        directory = os.path.dirname(path)
+        if directory:
+            try:
+                os.makedirs(directory, exist_ok=True)
+            except OSError as exc:
+                raise ToolError(f"Could not create directory {directory!r}: {exc}")
+        timecode = None
+        try:
+            timecode = timeline.GetCurrentTimecode()
+        except Exception:  # noqa: BLE001
+            pass
         ok = project.ExportCurrentFrameAsStill(path)
         if not ok:
-            raise ToolError(f"ExportCurrentFrameAsStill failed for {path!r}.")
-        return {"ok": True, "filePath": path}
+            raise ToolError(
+                f"ExportCurrentFrameAsStill failed for {path!r}. "
+                "Check the path ends with a valid image extension (.jpg/.png/.tif)."
+            )
+        return {"ok": True, "filePath": path, "timecode": timecode}
 
     @tool(
         "get_render_presets",
@@ -883,8 +925,14 @@ def main():
 
 
 # Resolve runs menu scripts via exec; __name__ is not always "__main__".
-# Fire main() on direct run OR when launched inside Resolve (global `resolve`
-# is injected by the menu runtime). The test harness imports under a different
-# module name with no `resolve` global, so it stays inert.
-if __name__ == "__main__" or globals().get("resolve") is not None:
+# Fire main() on direct run OR when launched inside Resolve (the menu runtime
+# injects `resolve` into __main__). The test harness imports under a different
+# module name with no injected `resolve`, so it stays inert.
+def _launched_inside_resolve():
+    import __main__  # noqa: WPS433
+
+    return any(getattr(__main__, name, None) for name in ("resolve", "bmd", "app", "fu"))
+
+
+if __name__ == "__main__" or _launched_inside_resolve():
     main()
