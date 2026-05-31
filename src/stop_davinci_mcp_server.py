@@ -53,10 +53,20 @@ def _resolve_log_path():
 LOG_PATH = _resolve_log_path()
 
 
+def safe_flush():
+    # Resolve's custom stdout (fu_stdout) has no flush(); guard it.
+    flush = getattr(sys.stdout, "flush", None)
+    if callable(flush):
+        try:
+            flush()
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def log(message=""):
     """Print to the Console and append to the same logfile as the server."""
     print(message)
-    sys.stdout.flush()
+    safe_flush()
     try:
         with open(LOG_PATH, "a", encoding="utf-8") as handle:
             handle.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}  {message}\n")
@@ -90,15 +100,17 @@ def _inside_resolve():
 
 
 def bootstrap():
-    try:
-        sys.stdout.reconfigure(line_buffering=True)  # Python 3.7+
-    except Exception:  # noqa: BLE001
-        pass
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if callable(reconfigure):
+        try:
+            reconfigure(line_buffering=True)  # Python 3.7+
+        except Exception:  # noqa: BLE001
+            pass
     # Run when launched directly OR from the Resolve menu (Resolve injects
     # scripting globals into __main__). Stays inert on plain test import.
     if __name__ == "__main__" or _inside_resolve():
         print("stop_davinci_mcp_server loaded")
-        sys.stdout.flush()
+        safe_flush()
         stop()
 
 

@@ -79,10 +79,21 @@ def _resolve_log_path():
 LOG_PATH = _resolve_log_path()
 
 
+def safe_flush():
+    """Flush stdout if possible. Resolve replaces sys.stdout with a custom
+    object (``fu_stdout``) that has no ``flush``/``reconfigure``, so guard it."""
+    flush = getattr(sys.stdout, "flush", None)
+    if callable(flush):
+        try:
+            flush()
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def log(message=""):
     """Print to the Resolve Console and append to the logfile (timestamped)."""
     print(message)
-    sys.stdout.flush()
+    safe_flush()
     try:
         with open(LOG_PATH, "a", encoding="utf-8") as handle:
             stamp = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -928,12 +939,14 @@ def bootstrap():
     server when a Resolve object is found. When imported by the test suite there
     is no injected ``resolve``, so this stays inert.
     """
-    # Line-buffer stdout so each line reaches the Resolve Console immediately
-    # rather than sitting in a block buffer while the server runs.
-    try:
-        sys.stdout.reconfigure(line_buffering=True)  # Python 3.7+
-    except Exception:  # noqa: BLE001
-        pass
+    # Line-buffer stdout so each line reaches the Resolve Console immediately.
+    # Resolve's custom stdout has no reconfigure(), so this is best-effort.
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if callable(reconfigure):
+        try:
+            reconfigure(line_buffering=True)  # Python 3.7+
+        except Exception:  # noqa: BLE001
+            pass
 
     resolve, how = get_resolve()
     if not resolve:
@@ -942,7 +955,7 @@ def bootstrap():
 
     # Immediate Console line, like the reference scripts' "<name> loaded".
     print(f"{SERVER_NAME} loaded")
-    sys.stdout.flush()
+    safe_flush()
 
     try:
         run_server(resolve, how)
