@@ -45,9 +45,20 @@ cd davinci-resolve-lite-mcp
 ./install.sh
 ```
 
-`install.sh` symlinks `src/davinci_mcp_server.py` into Resolve's
-`Fusion/Scripts/Edit` folder (the Lite container path is detected
-automatically).
+`install.sh` puts both scripts into Resolve's `Fusion/Scripts/Edit` folder
+(the Lite container path is detected automatically).
+
+> **Sandbox note (important).** DaVinci Resolve Lite is sandboxed and can only
+> read its own container, `~/Movies`, and files you pick interactively. A
+> symlink that points outside those locations (e.g. into a clone under
+> `~/Projects`) **cannot be followed by the sandboxed app**, so the menu script
+> would silently never run. For that reason `install.sh` **copies** the scripts
+> into the container on Lite (and symlinks only on the non-sandboxed Studio
+> build). **Re-run `./install.sh` after pulling updates.**
+>
+> The same sandboxing applies to file paths you ask the tools to use:
+> exports/imports should target `~/Movies` (or other granted locations),
+> otherwise Resolve cannot write/read them.
 
 ## Run
 

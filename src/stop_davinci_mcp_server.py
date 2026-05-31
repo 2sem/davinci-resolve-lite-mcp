@@ -83,10 +83,23 @@ def stop():
     return False
 
 
-def main():
-    return stop()
+def _inside_resolve():
+    import __main__  # noqa: WPS433
+
+    return any(getattr(__main__, name, None) for name in ("resolve", "bmd", "app", "fu"))
 
 
-# Resolve runs menu scripts via exec; __name__ is not always "__main__".
-if __name__ == "__main__" or globals().get("resolve") is not None:
-    main()
+def bootstrap():
+    try:
+        sys.stdout.reconfigure(line_buffering=True)  # Python 3.7+
+    except Exception:  # noqa: BLE001
+        pass
+    # Run when launched directly OR from the Resolve menu (Resolve injects
+    # scripting globals into __main__). Stays inert on plain test import.
+    if __name__ == "__main__" or _inside_resolve():
+        print("stop_davinci_mcp_server loaded")
+        sys.stdout.flush()
+        stop()
+
+
+bootstrap()

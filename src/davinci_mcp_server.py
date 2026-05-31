@@ -899,20 +899,7 @@ def start_http_server(host, port, dispatcher):
     raise RuntimeError(f"No free port in {port}..{port + PORT_SCAN_RANGE - 1}: {last_err}")
 
 
-def main():
-    # Line-buffer stdout so each line reaches the Resolve Console immediately
-    # rather than sitting in a block buffer while the server runs.
-    try:
-        sys.stdout.reconfigure(line_buffering=True)  # Python 3.7+
-    except Exception:  # noqa: BLE001
-        pass
-
-    resolve, how = get_resolve()
-    if not resolve:
-        log("[davinci-mcp] ERROR: could not connect to DaVinci Resolve.")
-        log("[davinci-mcp] Launch this from Workspace > Scripts > Edit inside Resolve.")
-        return
-
+def run_server(resolve, how):
     bridge = ResolveBridge(resolve)
     dispatcher = MCPDispatcher(bridge)
     server, port = start_http_server(DEFAULT_HOST, DEFAULT_PORT, dispatcher)
@@ -932,15 +919,36 @@ def main():
         log("[davinci-mcp] Server stopped.")
 
 
-# Resolve runs menu scripts via exec; __name__ is not always "__main__".
-# Fire main() on direct run OR when launched inside Resolve (the menu runtime
-# injects `resolve` into __main__). The test harness imports under a different
-# module name with no injected `resolve`, so it stays inert.
-def _launched_inside_resolve():
-    import __main__  # noqa: WPS433
+def bootstrap():
+    """Top-level entry, mirroring the reference menu scripts.
 
-    return any(getattr(__main__, name, None) for name in ("resolve", "bmd", "app", "fu"))
+    The reference scripts (e.g. 02-clone-v1-to-v2.py) run their logic at module
+    scope and do NOT rely on ``__name__ == "__main__"`` — Resolve's menu exec
+    does not guarantee it. So we do the same: try to connect, and only run the
+    server when a Resolve object is found. When imported by the test suite there
+    is no injected ``resolve``, so this stays inert.
+    """
+    # Line-buffer stdout so each line reaches the Resolve Console immediately
+    # rather than sitting in a block buffer while the server runs.
+    try:
+        sys.stdout.reconfigure(line_buffering=True)  # Python 3.7+
+    except Exception:  # noqa: BLE001
+        pass
+
+    resolve, how = get_resolve()
+    if not resolve:
+        # Not running inside Resolve (e.g. imported for tests). Stay silent.
+        return
+
+    # Immediate Console line, like the reference scripts' "<name> loaded".
+    print(f"{SERVER_NAME} loaded")
+    sys.stdout.flush()
+
+    try:
+        run_server(resolve, how)
+    except Exception:  # noqa: BLE001
+        log("[davinci-mcp] FATAL ERROR:\n" + traceback.format_exc())
+        raise
 
 
-if __name__ == "__main__" or _launched_inside_resolve():
-    main()
+bootstrap()
