@@ -87,7 +87,9 @@ def log_startup_guide(server_name, version, how, resolve, url, log_path):
         "  Other MCP clients: point them at the endpoint above using the",
         "  Streamable HTTP transport (POST JSON-RPC to /mcp).",
         "-" * 64,
-        "  Server running. Leave Resolve open. Quit Resolve to stop.",
+        "  Server running. To STOP it without quitting Resolve, run:",
+        "",
+        "       ./stop.sh            (or quit Resolve)",
         "=" * 64,
         "",
     ]
@@ -764,6 +766,12 @@ def make_handler(dispatcher):
             self.end_headers()
 
         def do_POST(self):
+            # Control endpoint: stop the server without quitting Resolve.
+            if self.path.rstrip("/").endswith("/shutdown"):
+                self._send_json({"ok": True, "stopping": SERVER_NAME})
+                dispatcher.bridge.stop()
+                return
+
             length = int(self.headers.get("Content-Length", 0))
             raw = self.rfile.read(length) if length else b""
             try:

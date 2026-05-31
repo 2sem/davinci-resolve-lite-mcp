@@ -66,7 +66,18 @@ automatically).
    claude mcp add --transport http davinci http://127.0.0.1:8765/mcp
    ```
 
-4. Ask Claude to control Resolve. To stop the server, quit Resolve.
+4. Ask Claude to control Resolve.
+
+### Stopping
+
+Quit DaVinci Resolve, **or** stop the server without quitting Resolve:
+
+```bash
+./stop.sh
+```
+
+`stop.sh` POSTs to the server's `/shutdown` endpoint, scanning the same port
+range the server uses on startup.
 
 > The port auto-increments from `8765` if that port is busy. Override the
 > default with the `DAVINCI_MCP_PORT` / `DAVINCI_MCP_HOST` environment
