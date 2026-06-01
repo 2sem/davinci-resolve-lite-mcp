@@ -67,6 +67,7 @@ _TOOL_ORDER = [
     'get_current_video_item',
     'get_timecode',
     'set_timecode',
+    'get_timeline_markers',
     'add_timeline_marker',
     'delete_timeline_marker',
     'list_media_pool',
@@ -179,6 +180,9 @@ _TOOL_ORDER = [
     'create_gallery_album',
     'set_current_gallery_album',
 ]
-TOOLS = {name: TOOLS[name] for name in _TOOL_ORDER}
+# Order known tools by _TOOL_ORDER; append any newly-registered tools not yet
+# listed (stable) so adding a tool needs only @register — no _TOOL_ORDER edit.
+_rank = {name: i for i, name in enumerate(_TOOL_ORDER)}
+TOOLS = dict(sorted(TOOLS.items(), key=lambda kv: _rank.get(kv[0], len(_rank))))
 
 __all__ = ["TOOLS", "ToolError", "register"]

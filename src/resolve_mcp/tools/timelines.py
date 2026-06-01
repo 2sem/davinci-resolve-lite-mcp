@@ -95,6 +95,17 @@ def set_timecode(resolve, args):
 
 
 @register(
+    "get_timeline_markers",
+    "List all markers on the current timeline (frame -> {color, name, note, "
+    "duration, customData}).",
+    None,
+)
+def get_timeline_markers(resolve, args):
+    tl = _require_timeline(resolve)
+    return {"markers": tl.GetMarkers() or {}}
+
+
+@register(
     "add_timeline_marker",
     "Add a marker on the current timeline at a frame offset from the timeline start.",
     {
