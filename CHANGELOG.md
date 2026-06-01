@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.0
+
+### Added
+- id-based media-pool clip addressing (MVP): single-clip tools accept a stable
+  `id` (`GetUniqueId`, resolvable across any bin) as an alternative to `name`
+  (current folder), fixing duplicate-name ambiguity. `list_media_pool`,
+  `get_selected_clips`, `get_pool_clip_tags`, `get_clip_properties` now expose
+  `id`. Folder and multi-name/list tools are unchanged for now.
+
 ## 0.9.0
 
 ### Added
