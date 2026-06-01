@@ -118,7 +118,7 @@ endpoint, scanning the same port range the server uses on startup.
 
 ## Tools
 
-67 tools, all exercised live against DaVinci Resolve Lite.
+71 tools, all exercised live against DaVinci Resolve Lite.
 
 **Status & navigation**
 | Tool | What it does |
@@ -152,6 +152,8 @@ endpoint, scanning the same port range the server uses on startup.
 |------|--------------|
 | `add_clip_to_timeline` | Place a clip with source in/out, target track, record frame |
 | `append_clips_to_timeline` | Append whole clips to the timeline |
+| `delete_timeline_item` | Delete a clip from the timeline (optional ripple) |
+| `insert_title` / `insert_fusion_title` / `insert_generator` | Insert a title/generator at the playhead |
 | `get_timeline_item_property` / `set_timeline_item_property` | Transform/crop/zoom/pan/opacity etc. |
 | `get_clip_tags` | A clip's color, flags and markers |
 | `set_clip_color` / `add_clip_flag` / `clear_clip_flags` | Clip color label and flags |
