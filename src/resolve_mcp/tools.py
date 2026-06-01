@@ -1686,6 +1686,77 @@ def _build_tools():
         return {"ok": True, "filePath": path}
 
     @tool(
+        "restore_project",
+        "Restore a project from a file path (e.g. a .dra archive folder or .drp). "
+        "Optional 'name' for the restored project.",
+        {"type": "object", "properties": {
+            "filePath": {"type": "string"}, "name": {"type": "string"}},
+         "required": ["filePath"]},
+    )
+    def restore_project(resolve, args):
+        pm = resolve.GetProjectManager()
+        path = os.path.expanduser(args["filePath"])
+        if not os.path.exists(path):
+            raise ToolError(f"Path not found: {path}")
+        ok = pm.RestoreProject(path, args["name"]) if args.get("name") else pm.RestoreProject(path)
+        if not ok:
+            raise ToolError("RestoreProject failed.")
+        return {"ok": True, "filePath": path}
+
+    @tool(
+        "get_project_presets",
+        "List the current project's presets.",
+        None,
+    )
+    def get_project_presets(resolve, args):
+        project = _require_project(resolve)
+        return {"presets": project.GetPresetList() or []}
+
+    @tool(
+        "set_project_preset",
+        "Apply a named project preset to the current project.",
+        {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+    )
+    def set_project_preset(resolve, args):
+        project = _require_project(resolve)
+        if not project.SetPreset(args["name"]):
+            raise ToolError(f"SetPreset({args['name']!r}) failed.")
+        return {"ok": True, "preset": args["name"]}
+
+    @tool(
+        "import_render_preset",
+        "Import a render preset from a file and set it as the current render "
+        "preset.",
+        {"type": "object", "properties": {"filePath": {"type": "string"}}, "required": ["filePath"]},
+    )
+    def import_render_preset(resolve, args):
+        path = os.path.expanduser(args["filePath"])
+        if not os.path.exists(path):
+            raise ToolError(f"File not found: {path}")
+        if not resolve.ImportRenderPreset(path):
+            raise ToolError("ImportRenderPreset failed.")
+        return {"ok": True, "filePath": path}
+
+    @tool(
+        "export_render_preset",
+        "Export a render preset (by name) to a file path.",
+        {"type": "object", "properties": {
+            "name": {"type": "string"}, "filePath": {"type": "string"}},
+         "required": ["name", "filePath"]},
+    )
+    def export_render_preset(resolve, args):
+        path = os.path.expanduser(args["filePath"])
+        directory = os.path.dirname(path)
+        if directory:
+            try:
+                os.makedirs(directory, exist_ok=True)
+            except OSError as exc:
+                raise ToolError(f"Could not create directory {directory!r}: {exc}")
+        if not resolve.ExportRenderPreset(args["name"], path):
+            raise ToolError(f"ExportRenderPreset({args['name']!r}) failed (unknown preset?).")
+        return {"ok": True, "filePath": path, "preset": args["name"]}
+
+    @tool(
         "get_setting",
         "Read a project or timeline setting. scope = 'project' (default) or "
         "'timeline'. Omit 'name' to return all settings as a dict.",
