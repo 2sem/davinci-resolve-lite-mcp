@@ -41,6 +41,18 @@ def _track_item(resolve, args):
     return items[iidx - 1]
 
 
+def _pool_clip(resolve, name):
+    """Find a MediaPoolItem by name in the current media pool folder."""
+    project = _require_project(resolve)
+    folder = project.GetMediaPool().GetCurrentFolder()
+    if not folder:
+        raise ToolError("No current media pool folder.")
+    for clip in folder.GetClipList() or []:
+        if clip.GetName() == name:
+            return clip
+    raise ToolError(f"Clip {name!r} not found in current folder.")
+
+
 VALID_PAGES = ("media", "cut", "edit", "fusion", "color", "fairlight", "deliver")
 
 
@@ -708,6 +720,102 @@ def _build_tools():
         if not mp.DeleteClips(wanted):
             raise ToolError("DeleteClips failed.")
         return {"deleted": len(wanted), "missing": [m for m in missing if isinstance(m, str)]}
+
+    @tool(
+        "get_clip_properties",
+        "Read a media-pool clip's properties (by name, from the current folder). "
+        "Omit 'property' to return all (resolution, FPS, codec, dates, etc.).",
+        {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "property": {"type": "string"},
+            },
+            "required": ["name"],
+        },
+    )
+    def get_clip_properties(resolve, args):
+        clip = _pool_clip(resolve, args["name"])
+        prop = args.get("property")
+        value = clip.GetClipProperty(prop) if prop else clip.GetClipProperty()
+        return {"name": clip.GetName(), "property": prop, "value": value}
+
+    @tool(
+        "set_clip_property",
+        "Set a media-pool clip property (by name, from the current folder).",
+        {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "property": {"type": "string"},
+                "value": {"type": ["string", "number", "boolean"]},
+            },
+            "required": ["name", "property", "value"],
+        },
+    )
+    def set_clip_property(resolve, args):
+        clip = _pool_clip(resolve, args["name"])
+        if not clip.SetClipProperty(args["property"], str(args["value"])):
+            raise ToolError(
+                f"SetClipProperty({args['property']!r}) failed (unknown/read-only)."
+            )
+        return {"ok": True, "name": clip.GetName(), "property": args["property"], "value": args["value"]}
+
+    @tool(
+        "get_clip_metadata",
+        "Read a media-pool clip's metadata (by name). Omit 'key' to return all "
+        "set metadata as a dict.",
+        {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "key": {"type": "string"},
+            },
+            "required": ["name"],
+        },
+    )
+    def get_clip_metadata(resolve, args):
+        clip = _pool_clip(resolve, args["name"])
+        key = args.get("key")
+        value = clip.GetMetadata(key) if key else clip.GetMetadata()
+        return {"name": clip.GetName(), "key": key, "value": value}
+
+    @tool(
+        "set_clip_metadata",
+        "Set a media-pool clip's metadata key (by name).",
+        {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "key": {"type": "string"},
+                "value": {"type": "string"},
+            },
+            "required": ["name", "key", "value"],
+        },
+    )
+    def set_clip_metadata(resolve, args):
+        clip = _pool_clip(resolve, args["name"])
+        if not clip.SetMetadata(args["key"], str(args["value"])):
+            raise ToolError(f"SetMetadata({args['key']!r}) failed.")
+        return {"ok": True, "name": clip.GetName(), "key": args["key"], "value": args["value"]}
+
+    @tool(
+        "rename_clip",
+        "Rename a media-pool clip (by current name, from the current folder).",
+        {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "newName": {"type": "string"},
+            },
+            "required": ["name", "newName"],
+        },
+    )
+    def rename_clip(resolve, args):
+        clip = _pool_clip(resolve, args["name"])
+        if not clip.SetName(args["newName"]):
+            raise ToolError("SetName failed.")
+        return {"ok": True, "name": clip.GetName()}
 
     @tool(
         "append_clips_to_timeline",
