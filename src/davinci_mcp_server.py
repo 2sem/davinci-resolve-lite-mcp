@@ -892,29 +892,37 @@ class MCPDispatcher:
     def _call_tool(self, params):
         name = params.get("name")
         args = params.get("arguments") or {}
+        arg_str = json.dumps(args, ensure_ascii=False, separators=(",", ":")) if args else "{}"
+        if len(arg_str) > 120:
+            arg_str = arg_str[:117] + "..."
+
+        def log_call(status, started):
+            elapsed_ms = int((time.monotonic() - started) * 1000)
+            log(f"[davinci-mcp] {name} {arg_str} -> {status} ({elapsed_ms}ms)")
+
         spec = TOOLS.get(name)
         if not spec:
-            log(f"[davinci-mcp] call: {name} -> unknown tool")
+            started = time.monotonic()
+            log_call(f"error: Unknown tool: {name}", started)
             raise ToolError(f"Unknown tool: {name}")
         handler = spec["handler"]
-
-        arg_str = json.dumps(args, ensure_ascii=False) if args else "{}"
-        if len(arg_str) > 200:
-            arg_str = arg_str[:200] + "…"
 
         # Log on the main thread (inside the queued job) so Console writes share
         # the same single-thread discipline as the Resolve API calls.
         def job(resolve):
-            log(f"[davinci-mcp] call: {name} {arg_str}")
+            started = time.monotonic()
             try:
                 value = handler(resolve, args)
             except ToolError as exc:
-                log(f"[davinci-mcp]   -> error: {exc}")
+                message = str(exc).splitlines()[0] if str(exc) else ""
+                log_call(f"error: {message}", started)
                 raise
             except Exception as exc:  # noqa: BLE001
-                log(f"[davinci-mcp]   -> EXCEPTION: {exc}")
+                tb_line = traceback.format_exception_only(type(exc), exc)[-1].strip()
+                tb_line = tb_line.splitlines()[0] if tb_line else ""
+                log_call(f"EXCEPTION: {tb_line}", started)
                 raise
-            log(f"[davinci-mcp]   -> ok")
+            log_call("ok", started)
             return value
 
         result = self.bridge.call(job)
