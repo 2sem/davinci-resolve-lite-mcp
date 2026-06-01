@@ -27,6 +27,20 @@ def _require_timeline(resolve):
     return timeline
 
 
+def _track_item(resolve, args):
+    """Resolve a TimelineItem by trackType + 1-based trackIndex + 1-based itemIndex."""
+    tl = _require_timeline(resolve)
+    ttype = args["trackType"]
+    tidx = args["trackIndex"]
+    iidx = args["itemIndex"]
+    items = tl.GetItemListInTrack(ttype, tidx) or []
+    if iidx < 1 or iidx > len(items):
+        raise ToolError(
+            f"No item #{iidx} on {ttype}{tidx} (track has {len(items)} item(s))."
+        )
+    return items[iidx - 1]
+
+
 VALID_PAGES = ("media", "cut", "edit", "fusion", "color", "fairlight", "deliver")
 
 
@@ -206,6 +220,65 @@ def _build_tools():
                 }
             )
         return {"track": f"{ttype}{idx}", "items": out}
+
+    _ITEM_ADDR = {
+        "trackType": {"type": "string", "enum": ["video", "audio", "subtitle"]},
+        "trackIndex": {"type": "integer", "minimum": 1},
+        "itemIndex": {"type": "integer", "minimum": 1, "description": "1-based position on the track"},
+    }
+
+    @tool(
+        "get_timeline_item_property",
+        "Read transform/crop/composite properties of a timeline clip. Address it "
+        "by trackType + trackIndex + itemIndex (1-based position on the track). "
+        "Omit 'property' to return all properties as a dict. Common properties: "
+        "Pan, Tilt, ZoomX, ZoomY, RotationAngle, AnchorPointX/Y, "
+        "CropLeft/Right/Top/Bottom, CropSoftness, Opacity, FlipX, FlipY, "
+        "CompositeMode, Distortion.",
+        {
+            "type": "object",
+            "properties": {**_ITEM_ADDR, "property": {"type": "string"}},
+            "required": ["trackType", "trackIndex", "itemIndex"],
+        },
+    )
+    def get_timeline_item_property(resolve, args):
+        item = _track_item(resolve, args)
+        prop = args.get("property")
+        value = item.GetProperty(prop) if prop else item.GetProperty()
+        return {
+            "item": item.GetName(),
+            "property": prop,
+            "value": value,
+        }
+
+    @tool(
+        "set_timeline_item_property",
+        "Set a transform/crop/composite property on a timeline clip. Address it "
+        "by trackType + trackIndex + itemIndex (1-based position on the track). "
+        "'value' is usually a number (e.g. ZoomX=1.5, Pan=120, RotationAngle=90, "
+        "CropLeft=200, Opacity=80). Common properties: Pan, Tilt, ZoomX, ZoomY, "
+        "RotationAngle, AnchorPointX/Y, CropLeft/Right/Top/Bottom, CropSoftness, "
+        "Opacity, FlipX, FlipY, CompositeMode, Distortion.",
+        {
+            "type": "object",
+            "properties": {
+                **_ITEM_ADDR,
+                "property": {"type": "string"},
+                "value": {"type": ["number", "string", "boolean"]},
+            },
+            "required": ["trackType", "trackIndex", "itemIndex", "property", "value"],
+        },
+    )
+    def set_timeline_item_property(resolve, args):
+        item = _track_item(resolve, args)
+        prop = args["property"]
+        value = args["value"]
+        if not item.SetProperty(prop, value):
+            raise ToolError(
+                f"SetProperty({prop!r}, {value!r}) failed on {item.GetName()!r} "
+                "(unknown property or invalid value)."
+            )
+        return {"ok": True, "item": item.GetName(), "property": prop, "value": value}
 
     @tool(
         "get_timecode",
