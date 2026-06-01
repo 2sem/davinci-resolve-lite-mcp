@@ -118,7 +118,7 @@ endpoint, scanning the same port range the server uses on startup.
 
 ## Tools
 
-64 tools, all exercised live against DaVinci Resolve Lite.
+67 tools, all exercised live against DaVinci Resolve Lite.
 
 **Status & navigation**
 | Tool | What it does |
@@ -178,7 +178,8 @@ endpoint, scanning the same port range the server uses on startup.
 | Tool | What it does |
 |------|--------------|
 | `export_current_frame_as_still` | Export the current frame as an image |
-| `export_timeline` | Export timeline (AAF/EDL/FCPXML/DRT/OTIO) |
+| `export_timeline` / `import_timeline` | Export / import a timeline (AAF/EDL/FCPXML/DRT/OTIO) |
+| `export_project` / `import_project` | Back up / restore a project (.drp) |
 | `get_render_presets` | List render presets + current format/codec |
 | `get_render_formats` / `set_render_format_codec` | Discover / set render format + codec |
 | `render_current_timeline` | Queue + start a render of the current timeline |
