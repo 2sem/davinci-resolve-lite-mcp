@@ -1,6 +1,6 @@
 # Tools reference
 
-123 tools, all exercised live against DaVinci Resolve Lite (or verified on the
+133 tools, all exercised live against DaVinci Resolve Lite (or verified on the
 same code path). Every tool call is logged to the Resolve Console and the
 logfile as a single line:
 `[davinci-mcp] <name> <args> -> ok|error|EXCEPTION (Nms)`.
@@ -30,7 +30,7 @@ logfile as a single line:
 | Tool | What it does |
 |------|--------------|
 | `list_timelines` / `set_current_timeline` | Browse and switch timelines |
-| `create_timeline` / `delete_timeline` / `duplicate_timeline` | Create / delete / duplicate |
+| `create_timeline` / `create_timeline_from_clips` / `delete_timeline` / `duplicate_timeline` | Create (empty or from clips) / delete / duplicate |
 | `get_timeline_info` | Frame range, timecode, track counts |
 | `set_timeline_name` / `set_timeline_start_timecode` | Rename / set start TC |
 | `get_timecode` / `set_timecode` | Read / move the playhead |
@@ -46,6 +46,7 @@ logfile as a single line:
 | `add_track` / `delete_track` | Add / remove a video/audio/subtitle track |
 | `set_track_enabled` / `set_track_locked` / `set_track_name` | Toggle / lock / rename |
 | `get_track_items` | Clips on a track |
+| `get_timeline_item_timing` | A clip's source extents, offsets, track location, linked items |
 
 ## Editing (timeline clips)
 | Tool | What it does |
@@ -94,6 +95,10 @@ logfile as a single line:
 | `grab_still` / `grab_all_stills` | Grab stills to the gallery |
 | `get_gallery_stills_count` / `clear_gallery_stills` | Count / clear stills |
 | `list_gallery_albums` / `create_gallery_album` / `set_current_gallery_album` | Gallery albums |
+| `list_gallery_stills` / `set_gallery_still_label` | List / label stills |
+| `export_gallery_stills` / `import_gallery_stills` / `delete_gallery_stills` | Export / import / delete stills |
+| `apply_grade_from_drx` | Apply a .drx PowerGrade to a clip |
+| `get_node_tools` | List operators used in a node |
 
 ## Render & export
 | Tool | What it does |
@@ -103,6 +108,6 @@ logfile as a single line:
 | `get_render_formats` / `set_render_format_codec` | Format + codec |
 | `get_render_mode` / `set_render_mode` | Individual clips vs single clip |
 | `get_render_resolutions` | Valid resolutions for format/codec |
-| `render_current_timeline` / `get_render_status` | Queue + start / progress |
+| `add_render_job` / `render_current_timeline` / `get_render_status` | Queue (no start) / queue + start / progress |
 | `stop_rendering` / `delete_render_job` | Stop / remove jobs |
 | `get_quick_export_presets` / `quick_export` | Quick Export |
