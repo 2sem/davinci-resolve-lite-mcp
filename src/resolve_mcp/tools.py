@@ -614,6 +614,76 @@ def _build_tools():
         return {"ok": True, "trackType": ttype, "trackIndex": idx, "name": name}
 
     @tool(
+        "delete_timeline_item",
+        "Delete a clip from the timeline (by trackType + trackIndex + itemIndex, "
+        "1-based). Set 'ripple' true to close the gap left behind.",
+        {
+            "type": "object",
+            "properties": {**_ITEM_ADDR, "ripple": {"type": "boolean", "default": False}},
+            "required": ["trackType", "trackIndex", "itemIndex"],
+        },
+    )
+    def delete_timeline_item(resolve, args):
+        tl = _require_timeline(resolve)
+        item = _track_item(resolve, args)
+        name = item.GetName()
+        if not tl.DeleteClips([item], bool(args.get("ripple", False))):
+            raise ToolError("DeleteClips failed.")
+        return {"ok": True, "deleted": name}
+
+    @tool(
+        "insert_title",
+        "Insert a title generator (e.g. 'Text') into the timeline at the "
+        "playhead.",
+        {
+            "type": "object",
+            "properties": {"title": {"type": "string"}},
+            "required": ["title"],
+        },
+    )
+    def insert_title(resolve, args):
+        tl = _require_timeline(resolve)
+        item = tl.InsertTitleIntoTimeline(args["title"])
+        if not item:
+            raise ToolError(f"InsertTitleIntoTimeline({args['title']!r}) failed (unknown title).")
+        return {"ok": True, "inserted": item.GetName()}
+
+    @tool(
+        "insert_fusion_title",
+        "Insert a Fusion title (e.g. 'Text+') into the timeline at the playhead.",
+        {
+            "type": "object",
+            "properties": {"title": {"type": "string"}},
+            "required": ["title"],
+        },
+    )
+    def insert_fusion_title(resolve, args):
+        tl = _require_timeline(resolve)
+        item = tl.InsertFusionTitleIntoTimeline(args["title"])
+        if not item:
+            raise ToolError(
+                f"InsertFusionTitleIntoTimeline({args['title']!r}) failed (unknown title)."
+            )
+        return {"ok": True, "inserted": item.GetName()}
+
+    @tool(
+        "insert_generator",
+        "Insert a generator (e.g. 'Solid Color') into the timeline at the "
+        "playhead.",
+        {
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+            "required": ["name"],
+        },
+    )
+    def insert_generator(resolve, args):
+        tl = _require_timeline(resolve)
+        item = tl.InsertGeneratorIntoTimeline(args["name"])
+        if not item:
+            raise ToolError(f"InsertGeneratorIntoTimeline({args['name']!r}) failed (unknown generator).")
+        return {"ok": True, "inserted": item.GetName()}
+
+    @tool(
         "get_timecode",
         "Get the current playhead timecode of the current timeline.",
         None,
