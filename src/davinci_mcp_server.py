@@ -592,6 +592,34 @@ def _build_tools():
         return {"imported": [i.GetName() for i in items], "count": len(items)}
 
     @tool(
+        "delete_clip",
+        "Delete clips (by name, from the current media pool folder) from the "
+        "media pool.",
+        {
+            "type": "object",
+            "properties": {
+                "names": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["names"],
+        },
+    )
+    def delete_clip(resolve, args):
+        project = _require_project(resolve)
+        mp = project.GetMediaPool()
+        folder = mp.GetCurrentFolder()
+        if not folder:
+            raise ToolError("No current media pool folder.")
+        by_name = {c.GetName(): c for c in (folder.GetClipList() or [])}
+        wanted, missing = [], []
+        for n in args["names"]:
+            (wanted if n in by_name else missing).append(by_name.get(n, n))
+        if not wanted:
+            raise ToolError(f"Clips not found in current folder: {missing}")
+        if not mp.DeleteClips(wanted):
+            raise ToolError("DeleteClips failed.")
+        return {"deleted": len(wanted), "missing": [m for m in missing if isinstance(m, str)]}
+
+    @tool(
         "append_clips_to_timeline",
         "Append media pool clips (by name, from the current folder) to the current timeline.",
         {
