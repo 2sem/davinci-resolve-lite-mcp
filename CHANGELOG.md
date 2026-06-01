@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.0
+
+Adds source-clip (media pool) tagging — now **77 tools**.
+
+### Added
+- `get_pool_clip_tags`, `set_pool_clip_color`, `add_pool_clip_flag`,
+  `clear_pool_clip_flags`, `add_pool_clip_marker`, `delete_pool_clip_marker` —
+  color label, flags and markers on MediaPoolItems (mirrors the timeline-clip
+  tagging set at the source-clip level).
+
 ## 0.4.0
 
 Rounds out timeline editing (now **71 tools**).
