@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.0
+
+### Added
+- Server-side argument validation: every `tools/call` is checked against the
+  tool's JSON Schema (required fields, basic types, enums) before dispatch. A
+  malformed call now returns a clear `ToolError` naming the offending argument
+  instead of a generic internal error. Extra args are tolerated; deeply nested
+  schema constraints are not exhaustively checked.
+
+### Changed
+- Dropped dead imports left by the tools/ split (no behavior change).
+
 ## 0.8.3
 
 Internal refactor only — no tool/behavior change (148 tools).
