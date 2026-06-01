@@ -6,7 +6,8 @@ logfile as a single line:
 `[davinci-mcp] <name> <args> -> ok|error|EXCEPTION (Nms)`.
 
 > Addressing: timeline clips are addressed by `trackType` + `trackIndex` +
-> `itemIndex` (all 1-based); media-pool clips and folders by `name`. File-path
+> `itemIndex` (all 1-based); media-pool clips by `name` (current folder) or by
+> `id` (unique, any bin — from `list_media_pool`); folders by `name`. File-path
 > arguments accept `~` and are created if missing — on the sandboxed Lite build
 > they must resolve under `~/Movies` or another granted location.
 
