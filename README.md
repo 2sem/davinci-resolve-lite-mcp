@@ -108,6 +108,8 @@ endpoint, scanning the same port range the server uses on startup.
 
 ## Tools
 
+24 tools. All exercised live against DaVinci Resolve Lite.
+
 | Tool | What it does |
 |------|--------------|
 | `get_status` | Product/version, current project, timeline, page |
@@ -115,18 +117,21 @@ endpoint, scanning the same port range the server uses on startup.
 | `list_projects` / `load_project` | Browse and load projects |
 | `get_project_info` | Name, framerate, resolution, timeline count |
 | `list_timelines` / `set_current_timeline` | Browse and switch timelines |
-| `create_timeline` | Create a new empty timeline |
+| `create_timeline` / `delete_timeline` | Create / delete a timeline |
 | `get_timeline_info` | Frame range, timecode, track counts |
 | `get_track_items` | Clips on a video/audio/subtitle track |
 | `get_timecode` / `set_timecode` | Read / move the playhead |
-| `add_timeline_marker` | Add a marker at a frame |
-| `list_media_pool` / `import_media` | Browse and import media |
+| `add_timeline_marker` / `delete_timeline_marker` | Add / delete a marker (by frame or color) |
+| `list_media_pool` / `import_media` / `delete_clip` | Browse / import / delete media-pool clips |
 | `append_clips_to_timeline` | Append media-pool clips to the timeline |
 | `export_current_frame_as_still` | Export the current frame as an image |
 | `export_timeline` | Export timeline (AAF/EDL/FCPXML/DRT/OTIO) |
 | `get_render_presets` | List render presets + current format/codec |
 | `render_current_timeline` | Queue + start a render of the current timeline |
 | `get_render_status` | Render progress + job queue |
+
+Every tool call is logged to the Resolve Console and the logfile as a single
+line: `[davinci-mcp] <name> <args> -> ok|error|EXCEPTION (Nms)`.
 
 ## Security note
 
