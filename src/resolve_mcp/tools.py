@@ -53,6 +53,32 @@ def _pool_clip(resolve, name):
     raise ToolError(f"Clip {name!r} not found in current folder.")
 
 
+def _find_folder(mp, name):
+    """Find a media-pool Folder by name, searching the whole tree from root."""
+    root = mp.GetRootFolder()
+    stack = [root] if root else []
+    while stack:
+        folder = stack.pop()
+        if folder.GetName() == name:
+            return folder
+        stack.extend(folder.GetSubFolderList() or [])
+    raise ToolError(f"Media pool folder {name!r} not found.")
+
+
+def _track_items_by_index(resolve, track_type, track_index, item_indices):
+    """Return TimelineItems for 1-based item_indices on a track."""
+    tl = _require_timeline(resolve)
+    items = tl.GetItemListInTrack(track_type, track_index) or []
+    chosen = []
+    for idx in item_indices:
+        if idx < 1 or idx > len(items):
+            raise ToolError(
+                f"No item #{idx} on {track_type}{track_index} ({len(items)} item(s))."
+            )
+        chosen.append(items[idx - 1])
+    return tl, chosen
+
+
 VALID_PAGES = ("media", "cut", "edit", "fusion", "color", "fairlight", "deliver")
 
 
@@ -1643,6 +1669,691 @@ def _build_tools():
         if stills and not album.DeleteStills(stills):
             raise ToolError("DeleteStills failed.")
         return {"ok": True, "deleted": len(stills)}
+
+    # ----- Bins / folders -----------------------------------------------
+    @tool(
+        "add_subfolder",
+        "Create a subfolder under the current media pool folder.",
+        {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+    )
+    def add_subfolder(resolve, args):
+        project = _require_project(resolve)
+        mp = project.GetMediaPool()
+        parent = mp.GetCurrentFolder()
+        if not parent:
+            raise ToolError("No current media pool folder.")
+        folder = mp.AddSubFolder(parent, args["name"])
+        if not folder:
+            raise ToolError(f"AddSubFolder({args['name']!r}) failed.")
+        return {"ok": True, "created": folder.GetName()}
+
+    @tool(
+        "set_current_folder",
+        "Set the current media pool folder by name (searched from the root).",
+        {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+    )
+    def set_current_folder(resolve, args):
+        project = _require_project(resolve)
+        mp = project.GetMediaPool()
+        folder = _find_folder(mp, args["name"])
+        if not mp.SetCurrentFolder(folder):
+            raise ToolError("SetCurrentFolder failed.")
+        return {"ok": True, "currentFolder": folder.GetName()}
+
+    @tool(
+        "delete_subfolders",
+        "Delete subfolders (by name) of the current media pool folder.",
+        {"type": "object", "properties": {"names": {"type": "array", "items": {"type": "string"}}},
+         "required": ["names"]},
+    )
+    def delete_subfolders(resolve, args):
+        project = _require_project(resolve)
+        mp = project.GetMediaPool()
+        parent = mp.GetCurrentFolder()
+        if not parent:
+            raise ToolError("No current media pool folder.")
+        by_name = {f.GetName(): f for f in (parent.GetSubFolderList() or [])}
+        targets = [by_name[n] for n in args["names"] if n in by_name]
+        missing = [n for n in args["names"] if n not in by_name]
+        if not targets:
+            raise ToolError(f"No matching subfolders: {missing}")
+        if not mp.DeleteFolders(targets):
+            raise ToolError("DeleteFolders failed.")
+        return {"ok": True, "deleted": len(targets), "missing": missing}
+
+    @tool(
+        "move_clips_to_folder",
+        "Move clips (by name, from the current folder) into a target folder "
+        "(by name, searched from the root).",
+        {"type": "object", "properties": {
+            "names": {"type": "array", "items": {"type": "string"}},
+            "targetFolder": {"type": "string"}},
+         "required": ["names", "targetFolder"]},
+    )
+    def move_clips_to_folder(resolve, args):
+        project = _require_project(resolve)
+        mp = project.GetMediaPool()
+        folder = mp.GetCurrentFolder()
+        if not folder:
+            raise ToolError("No current media pool folder.")
+        by_name = {c.GetName(): c for c in (folder.GetClipList() or [])}
+        clips = [by_name[n] for n in args["names"] if n in by_name]
+        missing = [n for n in args["names"] if n not in by_name]
+        if not clips:
+            raise ToolError(f"No matching clips: {missing}")
+        target = _find_folder(mp, args["targetFolder"])
+        if not mp.MoveClips(clips, target):
+            raise ToolError("MoveClips failed.")
+        return {"ok": True, "moved": len(clips), "missing": missing, "to": target.GetName()}
+
+    # ----- Mark in/out --------------------------------------------------
+    @tool(
+        "set_mark_in_out",
+        "Set mark in/out on the current timeline, or on a media-pool clip if "
+        "'clip' (name) is given. type = video/audio/all (default all).",
+        {"type": "object", "properties": {
+            "in": {"type": "integer"}, "out": {"type": "integer"},
+            "type": {"type": "string", "enum": ["video", "audio", "all"], "default": "all"},
+            "clip": {"type": "string"}},
+         "required": ["in", "out"]},
+    )
+    def set_mark_in_out(resolve, args):
+        target = _pool_clip(resolve, args["clip"]) if args.get("clip") else _require_timeline(resolve)
+        if not target.SetMarkInOut(args["in"], args["out"], args.get("type", "all")):
+            raise ToolError("SetMarkInOut failed.")
+        return {"ok": True, "markInOut": target.GetMarkInOut()}
+
+    @tool(
+        "get_mark_in_out",
+        "Get mark in/out of the current timeline, or of a media-pool clip if "
+        "'clip' (name) is given.",
+        {"type": "object", "properties": {"clip": {"type": "string"}}},
+    )
+    def get_mark_in_out(resolve, args):
+        target = _pool_clip(resolve, args["clip"]) if args.get("clip") else _require_timeline(resolve)
+        return {"markInOut": target.GetMarkInOut()}
+
+    @tool(
+        "clear_mark_in_out",
+        "Clear mark in/out on the current timeline, or on a media-pool clip if "
+        "'clip' (name) is given. type = video/audio/all (default all).",
+        {"type": "object", "properties": {
+            "type": {"type": "string", "enum": ["video", "audio", "all"], "default": "all"},
+            "clip": {"type": "string"}}},
+    )
+    def clear_mark_in_out(resolve, args):
+        target = _pool_clip(resolve, args["clip"]) if args.get("clip") else _require_timeline(resolve)
+        target.ClearMarkInOut(args.get("type", "all"))
+        return {"ok": True}
+
+    # ----- Compound / Fusion clips --------------------------------------
+    @tool(
+        "create_compound_clip",
+        "Create a compound clip from items on a track (1-based itemIndices) of "
+        "the current timeline. Optional 'name'.",
+        {"type": "object", "properties": {
+            "trackType": {"type": "string", "enum": ["video", "audio", "subtitle"]},
+            "trackIndex": {"type": "integer", "minimum": 1},
+            "itemIndices": {"type": "array", "items": {"type": "integer", "minimum": 1}},
+            "name": {"type": "string"}},
+         "required": ["trackType", "trackIndex", "itemIndices"]},
+    )
+    def create_compound_clip(resolve, args):
+        tl, items = _track_items_by_index(resolve, args["trackType"], args["trackIndex"], args["itemIndices"])
+        clip_info = {"name": args["name"]} if args.get("name") else {}
+        item = tl.CreateCompoundClip(items, clip_info) if clip_info else tl.CreateCompoundClip(items)
+        if not item:
+            raise ToolError("CreateCompoundClip failed.")
+        return {"ok": True, "created": item.GetName()}
+
+    @tool(
+        "create_fusion_clip",
+        "Create a Fusion clip from items on a track (1-based itemIndices) of the "
+        "current timeline.",
+        {"type": "object", "properties": {
+            "trackType": {"type": "string", "enum": ["video", "audio", "subtitle"]},
+            "trackIndex": {"type": "integer", "minimum": 1},
+            "itemIndices": {"type": "array", "items": {"type": "integer", "minimum": 1}}},
+         "required": ["trackType", "trackIndex", "itemIndices"]},
+    )
+    def create_fusion_clip(resolve, args):
+        tl, items = _track_items_by_index(resolve, args["trackType"], args["trackIndex"], args["itemIndices"])
+        item = tl.CreateFusionClip(items)
+        if not item:
+            raise ToolError("CreateFusionClip failed.")
+        return {"ok": True, "created": item.GetName()}
+
+    @tool(
+        "set_timeline_name",
+        "Rename the current timeline.",
+        {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+    )
+    def set_timeline_name(resolve, args):
+        tl = _require_timeline(resolve)
+        if not tl.SetName(args["name"]):
+            raise ToolError("SetName failed (name not unique?).")
+        return {"ok": True, "name": tl.GetName()}
+
+    @tool(
+        "set_timeline_start_timecode",
+        "Set the start timecode of the current timeline (HH:MM:SS:FF).",
+        {"type": "object", "properties": {"timecode": {"type": "string"}}, "required": ["timecode"]},
+    )
+    def set_timeline_start_timecode(resolve, args):
+        tl = _require_timeline(resolve)
+        if not tl.SetStartTimecode(args["timecode"]):
+            raise ToolError(f"SetStartTimecode({args['timecode']!r}) failed.")
+        return {"ok": True, "startTimecode": tl.GetStartTimecode()}
+
+    # ----- Color: CDL, grade versions, color groups ---------------------
+    @tool(
+        "set_cdl",
+        "Apply an ASC CDL to a node of a timeline clip. slope/offset/power are "
+        "'R G B' strings; saturation is a single value. nodeIndex is 1-based.",
+        {"type": "object", "properties": {
+            **_ITEM_ADDR,
+            "nodeIndex": {"type": "integer", "minimum": 1, "default": 1},
+            "slope": {"type": "string"}, "offset": {"type": "string"},
+            "power": {"type": "string"}, "saturation": {"type": "string"}},
+         "required": ["trackType", "trackIndex", "itemIndex"]},
+    )
+    def set_cdl(resolve, args):
+        item = _track_item(resolve, args)
+        cdl = {"NodeIndex": str(args.get("nodeIndex", 1))}
+        for key, arg in (("Slope", "slope"), ("Offset", "offset"),
+                         ("Power", "power"), ("Saturation", "saturation")):
+            if args.get(arg) is not None:
+                cdl[key] = str(args[arg])
+        if not item.SetCDL(cdl):
+            raise ToolError("SetCDL failed.")
+        return {"ok": True, "item": item.GetName(), "cdl": cdl}
+
+    @tool(
+        "set_clip_enabled",
+        "Enable or disable a timeline clip (mute its output).",
+        {"type": "object", "properties": {**_ITEM_ADDR, "enabled": {"type": "boolean"}},
+         "required": ["trackType", "trackIndex", "itemIndex", "enabled"]},
+    )
+    def set_clip_enabled(resolve, args):
+        item = _track_item(resolve, args)
+        if not item.SetClipEnabled(bool(args["enabled"])):
+            raise ToolError("SetClipEnabled failed.")
+        return {"ok": True, "item": item.GetName(), "enabled": bool(args["enabled"])}
+
+    @tool(
+        "list_grade_versions",
+        "List color versions of a timeline clip. versionType 0=local (default), "
+        "1=remote.",
+        {"type": "object", "properties": {**_ITEM_ADDR, "versionType": {"type": "integer", "enum": [0, 1], "default": 0}},
+         "required": ["trackType", "trackIndex", "itemIndex"]},
+    )
+    def list_grade_versions(resolve, args):
+        item = _track_item(resolve, args)
+        vt = args.get("versionType", 0)
+        return {
+            "item": item.GetName(),
+            "versions": item.GetVersionNameList(vt) or [],
+            "current": item.GetCurrentVersion(),
+        }
+
+    @tool(
+        "add_grade_version",
+        "Add a color version to a timeline clip. versionType 0=local, 1=remote.",
+        {"type": "object", "properties": {
+            **_ITEM_ADDR, "name": {"type": "string"},
+            "versionType": {"type": "integer", "enum": [0, 1], "default": 0}},
+         "required": ["trackType", "trackIndex", "itemIndex", "name"]},
+    )
+    def add_grade_version(resolve, args):
+        item = _track_item(resolve, args)
+        if not item.AddVersion(args["name"], args.get("versionType", 0)):
+            raise ToolError("AddVersion failed (name may exist).")
+        return {"ok": True, "item": item.GetName(), "version": args["name"]}
+
+    @tool(
+        "load_grade_version",
+        "Load a named color version on a timeline clip. versionType 0=local, "
+        "1=remote.",
+        {"type": "object", "properties": {
+            **_ITEM_ADDR, "name": {"type": "string"},
+            "versionType": {"type": "integer", "enum": [0, 1], "default": 0}},
+         "required": ["trackType", "trackIndex", "itemIndex", "name"]},
+    )
+    def load_grade_version(resolve, args):
+        item = _track_item(resolve, args)
+        if not item.LoadVersionByName(args["name"], args.get("versionType", 0)):
+            raise ToolError("LoadVersionByName failed.")
+        return {"ok": True, "item": item.GetName(), "version": args["name"]}
+
+    @tool(
+        "delete_grade_version",
+        "Delete a named color version of a timeline clip. versionType 0=local, "
+        "1=remote.",
+        {"type": "object", "properties": {
+            **_ITEM_ADDR, "name": {"type": "string"},
+            "versionType": {"type": "integer", "enum": [0, 1], "default": 0}},
+         "required": ["trackType", "trackIndex", "itemIndex", "name"]},
+    )
+    def delete_grade_version(resolve, args):
+        item = _track_item(resolve, args)
+        if not item.DeleteVersionByName(args["name"], args.get("versionType", 0)):
+            raise ToolError("DeleteVersionByName failed.")
+        return {"ok": True, "item": item.GetName(), "deleted": args["name"]}
+
+    @tool(
+        "copy_grade",
+        "Copy the grade from a source timeline clip to one or more target clips. "
+        "Targets is a list of {trackType, trackIndex, itemIndex}.",
+        {"type": "object", "properties": {
+            **_ITEM_ADDR,
+            "targets": {"type": "array", "items": {
+                "type": "object",
+                "properties": dict(_ITEM_ADDR),
+                "required": ["trackType", "trackIndex", "itemIndex"]}}},
+         "required": ["trackType", "trackIndex", "itemIndex", "targets"]},
+    )
+    def copy_grade(resolve, args):
+        src = _track_item(resolve, args)
+        tgts = [_track_item(resolve, t) for t in args["targets"]]
+        if not src.CopyGrades(tgts):
+            raise ToolError("CopyGrades failed.")
+        return {"ok": True, "source": src.GetName(), "targets": len(tgts)}
+
+    @tool(
+        "list_color_groups",
+        "List color groups in the current project.",
+        None,
+    )
+    def list_color_groups(resolve, args):
+        project = _require_project(resolve)
+        return {"groups": [g.GetName() for g in (project.GetColorGroupsList() or [])]}
+
+    @tool(
+        "add_color_group",
+        "Create a color group with a unique name.",
+        {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+    )
+    def add_color_group(resolve, args):
+        project = _require_project(resolve)
+        group = project.AddColorGroup(args["name"])
+        if not group:
+            raise ToolError("AddColorGroup failed (name not unique?).")
+        return {"ok": True, "created": group.GetName()}
+
+    def _color_group(project, name):
+        for g in project.GetColorGroupsList() or []:
+            if g.GetName() == name:
+                return g
+        raise ToolError(f"Color group {name!r} not found.")
+
+    @tool(
+        "delete_color_group",
+        "Delete a color group by name.",
+        {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+    )
+    def delete_color_group(resolve, args):
+        project = _require_project(resolve)
+        group = _color_group(project, args["name"])
+        if not project.DeleteColorGroup(group):
+            raise ToolError("DeleteColorGroup failed.")
+        return {"ok": True, "deleted": args["name"]}
+
+    @tool(
+        "assign_to_color_group",
+        "Assign a timeline clip to a color group (by group name).",
+        {"type": "object", "properties": {**_ITEM_ADDR, "group": {"type": "string"}},
+         "required": ["trackType", "trackIndex", "itemIndex", "group"]},
+    )
+    def assign_to_color_group(resolve, args):
+        project = _require_project(resolve)
+        item = _track_item(resolve, args)
+        group = _color_group(project, args["group"])
+        if not item.AssignToColorGroup(group):
+            raise ToolError("AssignToColorGroup failed.")
+        return {"ok": True, "item": item.GetName(), "group": args["group"]}
+
+    @tool(
+        "remove_from_color_group",
+        "Remove a timeline clip from its color group.",
+        {"type": "object", "properties": dict(_ITEM_ADDR),
+         "required": ["trackType", "trackIndex", "itemIndex"]},
+    )
+    def remove_from_color_group(resolve, args):
+        item = _track_item(resolve, args)
+        if not item.RemoveFromColorGroup():
+            raise ToolError("RemoveFromColorGroup failed (clip not in a group?).")
+        return {"ok": True, "item": item.GetName()}
+
+    @tool(
+        "export_lut",
+        "Export a LUT from a timeline clip's grade. size = "
+        "17ptcube/33ptcube/65ptcube/panasonic (default 33ptcube). 'path' should "
+        "include the file name.",
+        {"type": "object", "properties": {
+            **_ITEM_ADDR,
+            "size": {"type": "string", "enum": ["17ptcube", "33ptcube", "65ptcube", "panasonic"], "default": "33ptcube"},
+            "path": {"type": "string"}},
+         "required": ["trackType", "trackIndex", "itemIndex", "path"]},
+    )
+    def export_lut(resolve, args):
+        item = _track_item(resolve, args)
+        size_map = {
+            "17ptcube": resolve.EXPORT_LUT_17PTCUBE,
+            "33ptcube": resolve.EXPORT_LUT_33PTCUBE,
+            "65ptcube": resolve.EXPORT_LUT_65PTCUBE,
+            "panasonic": resolve.EXPORT_LUT_PANASONICVLUT,
+        }
+        path = os.path.expanduser(args["path"])
+        directory = os.path.dirname(path)
+        if directory:
+            try:
+                os.makedirs(directory, exist_ok=True)
+            except OSError as exc:
+                raise ToolError(f"Could not create directory {directory!r}: {exc}")
+        if not item.ExportLUT(size_map[args.get("size", "33ptcube")], path):
+            raise ToolError("ExportLUT failed.")
+        return {"ok": True, "item": item.GetName(), "path": path}
+
+    # ----- Media-pool item ops ------------------------------------------
+    @tool(
+        "link_proxy",
+        "Link a proxy media file to a media-pool clip (by name).",
+        {"type": "object", "properties": {"name": {"type": "string"}, "proxyPath": {"type": "string"}},
+         "required": ["name", "proxyPath"]},
+    )
+    def link_proxy(resolve, args):
+        clip = _pool_clip(resolve, args["name"])
+        if not clip.LinkProxyMedia(os.path.expanduser(args["proxyPath"])):
+            raise ToolError("LinkProxyMedia failed.")
+        return {"ok": True, "name": clip.GetName()}
+
+    @tool(
+        "unlink_proxy",
+        "Unlink proxy media from a media-pool clip (by name).",
+        {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+    )
+    def unlink_proxy(resolve, args):
+        clip = _pool_clip(resolve, args["name"])
+        if not clip.UnlinkProxyMedia():
+            raise ToolError("UnlinkProxyMedia failed.")
+        return {"ok": True, "name": clip.GetName()}
+
+    @tool(
+        "replace_clip",
+        "Replace a media-pool clip's underlying media with another file (by name).",
+        {"type": "object", "properties": {"name": {"type": "string"}, "filePath": {"type": "string"}},
+         "required": ["name", "filePath"]},
+    )
+    def replace_clip(resolve, args):
+        clip = _pool_clip(resolve, args["name"])
+        if not clip.ReplaceClip(os.path.expanduser(args["filePath"])):
+            raise ToolError("ReplaceClip failed.")
+        return {"ok": True, "name": clip.GetName()}
+
+    @tool(
+        "get_selected_clips",
+        "List currently selected media-pool clips.",
+        None,
+    )
+    def get_selected_clips(resolve, args):
+        project = _require_project(resolve)
+        clips = project.GetMediaPool().GetSelectedClips() or []
+        return {"selected": [c.GetName() for c in clips]}
+
+    @tool(
+        "set_selected_clip",
+        "Select a media-pool clip (by name) in the current folder.",
+        {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+    )
+    def set_selected_clip(resolve, args):
+        project = _require_project(resolve)
+        clip = _pool_clip(resolve, args["name"])
+        if not project.GetMediaPool().SetSelectedClip(clip):
+            raise ToolError("SetSelectedClip failed.")
+        return {"ok": True, "name": clip.GetName()}
+
+    # ----- Render extras ------------------------------------------------
+    @tool(
+        "save_render_preset",
+        "Save the current render settings as a new preset.",
+        {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+    )
+    def save_render_preset(resolve, args):
+        project = _require_project(resolve)
+        if not project.SaveAsNewRenderPreset(args["name"]):
+            raise ToolError("SaveAsNewRenderPreset failed (name not unique?).")
+        return {"ok": True, "preset": args["name"]}
+
+    @tool(
+        "delete_render_preset",
+        "Delete a render preset by name.",
+        {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+    )
+    def delete_render_preset(resolve, args):
+        project = _require_project(resolve)
+        if not project.DeleteRenderPreset(args["name"]):
+            raise ToolError("DeleteRenderPreset failed.")
+        return {"ok": True, "deleted": args["name"]}
+
+    @tool(
+        "load_render_preset",
+        "Set a render preset (by name) as the current render preset.",
+        {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+    )
+    def load_render_preset(resolve, args):
+        project = _require_project(resolve)
+        if not project.LoadRenderPreset(args["name"]):
+            raise ToolError(f"Render preset {args['name']!r} not found.")
+        return {"ok": True, "preset": args["name"]}
+
+    @tool(
+        "get_render_mode",
+        "Get the render mode: 0 = individual clips, 1 = single clip.",
+        None,
+    )
+    def get_render_mode(resolve, args):
+        project = _require_project(resolve)
+        return {"renderMode": project.GetCurrentRenderMode()}
+
+    @tool(
+        "set_render_mode",
+        "Set the render mode: 0 = individual clips, 1 = single clip.",
+        {"type": "object", "properties": {"mode": {"type": "integer", "enum": [0, 1]}}, "required": ["mode"]},
+    )
+    def set_render_mode(resolve, args):
+        project = _require_project(resolve)
+        if not project.SetCurrentRenderMode(args["mode"]):
+            raise ToolError("SetCurrentRenderMode failed.")
+        return {"ok": True, "renderMode": args["mode"]}
+
+    @tool(
+        "get_render_resolutions",
+        "List render resolutions valid for a format + codec (or all if omitted).",
+        {"type": "object", "properties": {"format": {"type": "string"}, "codec": {"type": "string"}}},
+    )
+    def get_render_resolutions(resolve, args):
+        project = _require_project(resolve)
+        if args.get("format") and args.get("codec"):
+            res = project.GetRenderResolutions(args["format"], args["codec"])
+        else:
+            res = project.GetRenderResolutions()
+        return {"resolutions": res or []}
+
+    @tool(
+        "get_quick_export_presets",
+        "List available Quick Export presets.",
+        None,
+    )
+    def get_quick_export_presets(resolve, args):
+        project = _require_project(resolve)
+        return {"presets": project.GetQuickExportRenderPresets() or []}
+
+    @tool(
+        "quick_export",
+        "Quick Export the current timeline with a preset (from "
+        "get_quick_export_presets). Optional targetDir / customName.",
+        {"type": "object", "properties": {
+            "preset": {"type": "string"},
+            "targetDir": {"type": "string"},
+            "customName": {"type": "string"}},
+         "required": ["preset"]},
+    )
+    def quick_export(resolve, args):
+        project = _require_project(resolve)
+        _require_timeline(resolve)
+        params = {}
+        if args.get("targetDir"):
+            params["TargetDir"] = os.path.expanduser(args["targetDir"])
+        if args.get("customName"):
+            params["CustomName"] = args["customName"]
+        status = project.RenderWithQuickExport(args["preset"], params)
+        if isinstance(status, str):
+            raise ToolError(f"RenderWithQuickExport failed: {status}")
+        return {"ok": True, "status": status}
+
+    # ----- Misc ---------------------------------------------------------
+    @tool(
+        "import_into_timeline",
+        "Import timeline items from an AAF file into the current timeline.",
+        {"type": "object", "properties": {"filePath": {"type": "string"}}, "required": ["filePath"]},
+    )
+    def import_into_timeline(resolve, args):
+        tl = _require_timeline(resolve)
+        path = os.path.expanduser(args["filePath"])
+        if not os.path.exists(path):
+            raise ToolError(f"File not found: {path}")
+        if not tl.ImportIntoTimeline(path, {}):
+            raise ToolError("ImportIntoTimeline failed.")
+        return {"ok": True, "filePath": path}
+
+    @tool(
+        "insert_audio_at_playhead",
+        "Insert audio media at the playhead on the selected Fairlight track. "
+        "Offsets/durations are in samples.",
+        {"type": "object", "properties": {
+            "mediaPath": {"type": "string"},
+            "startOffsetInSamples": {"type": "integer", "default": 0},
+            "durationInSamples": {"type": "integer", "default": 0}},
+         "required": ["mediaPath"]},
+    )
+    def insert_audio_at_playhead(resolve, args):
+        project = _require_project(resolve)
+        path = os.path.expanduser(args["mediaPath"])
+        ok = project.InsertAudioToCurrentTrackAtPlayhead(
+            path, args.get("startOffsetInSamples", 0), args.get("durationInSamples", 0))
+        if not ok:
+            raise ToolError("InsertAudioToCurrentTrackAtPlayhead failed.")
+        return {"ok": True, "mediaPath": path}
+
+    @tool(
+        "grab_all_stills",
+        "Grab a still from every clip in the current timeline. source 1 = first "
+        "frame, 2 = middle frame.",
+        {"type": "object", "properties": {"source": {"type": "integer", "enum": [1, 2], "default": 1}}},
+    )
+    def grab_all_stills(resolve, args):
+        tl = _require_timeline(resolve)
+        stills = tl.GrabAllStills(args.get("source", 1)) or []
+        return {"ok": True, "grabbed": len(stills)}
+
+    @tool(
+        "reveal_in_storage",
+        "Reveal a file/folder path in Resolve's Media Storage.",
+        {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]},
+    )
+    def reveal_in_storage(resolve, args):
+        ms = resolve.GetMediaStorage()
+        if not ms.RevealInStorage(os.path.expanduser(args["path"])):
+            raise ToolError("RevealInStorage failed.")
+        return {"ok": True, "path": os.path.expanduser(args["path"])}
+
+    @tool(
+        "export_metadata",
+        "Export metadata of clips in the current folder to a CSV file. If "
+        "'names' is omitted, all media-pool clips are exported.",
+        {"type": "object", "properties": {
+            "filePath": {"type": "string"},
+            "names": {"type": "array", "items": {"type": "string"}}},
+         "required": ["filePath"]},
+    )
+    def export_metadata(resolve, args):
+        project = _require_project(resolve)
+        mp = project.GetMediaPool()
+        path = os.path.expanduser(args["filePath"])
+        directory = os.path.dirname(path)
+        if directory:
+            try:
+                os.makedirs(directory, exist_ok=True)
+            except OSError as exc:
+                raise ToolError(f"Could not create directory {directory!r}: {exc}")
+        if args.get("names"):
+            folder = mp.GetCurrentFolder()
+            by_name = {c.GetName(): c for c in (folder.GetClipList() or [])} if folder else {}
+            clips = [by_name[n] for n in args["names"] if n in by_name]
+            ok = mp.ExportMetadata(path, clips)
+        else:
+            ok = mp.ExportMetadata(path)
+        if not ok:
+            raise ToolError("ExportMetadata failed.")
+        return {"ok": True, "filePath": path}
+
+    @tool(
+        "refresh_lut_list",
+        "Refresh Resolve's LUT list (run after adding LUT files on disk).",
+        None,
+    )
+    def refresh_lut_list(resolve, args):
+        project = _require_project(resolve)
+        if not project.RefreshLUTList():
+            raise ToolError("RefreshLUTList failed.")
+        return {"ok": True}
+
+    # ----- Gallery albums -----------------------------------------------
+    @tool(
+        "list_gallery_albums",
+        "List the still albums in the gallery and the current album.",
+        None,
+    )
+    def list_gallery_albums(resolve, args):
+        project = _require_project(resolve)
+        gallery = project.GetGallery()
+        albums = gallery.GetGalleryStillAlbums() or []
+        current = gallery.GetCurrentStillAlbum()
+        cur_name = gallery.GetAlbumName(current) if current else None
+        return {
+            "albums": [gallery.GetAlbumName(a) for a in albums],
+            "current": cur_name,
+        }
+
+    @tool(
+        "create_gallery_album",
+        "Create a new still album. Optional 'name' to label it.",
+        {"type": "object", "properties": {"name": {"type": "string"}}},
+    )
+    def create_gallery_album(resolve, args):
+        project = _require_project(resolve)
+        gallery = project.GetGallery()
+        album = gallery.CreateGalleryStillAlbum()
+        if not album:
+            raise ToolError("CreateGalleryStillAlbum failed.")
+        if args.get("name"):
+            gallery.SetAlbumName(album, args["name"])
+        return {"ok": True, "album": gallery.GetAlbumName(album)}
+
+    @tool(
+        "set_current_gallery_album",
+        "Set the current still album by name.",
+        {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+    )
+    def set_current_gallery_album(resolve, args):
+        project = _require_project(resolve)
+        gallery = project.GetGallery()
+        for album in gallery.GetGalleryStillAlbums() or []:
+            if gallery.GetAlbumName(album) == args["name"]:
+                if not gallery.SetCurrentStillAlbum(album):
+                    raise ToolError("SetCurrentStillAlbum failed.")
+                return {"ok": True, "current": args["name"]}
+        raise ToolError(f"Gallery album {args['name']!r} not found.")
 
     return tools
 
