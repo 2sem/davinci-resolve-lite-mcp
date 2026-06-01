@@ -36,7 +36,7 @@ logfile as a single line:
 | `get_timeline_info` | Frame range, timecode, track counts |
 | `set_timeline_name` / `set_timeline_start_timecode` | Rename / set start TC |
 | `get_timecode` / `set_timecode` | Read / move the playhead |
-| `add_timeline_marker` / `delete_timeline_marker` | Timeline markers (by frame or color) |
+| `get_timeline_markers` / `add_timeline_marker` / `delete_timeline_marker` | List / add / delete timeline markers |
 | `set_mark_in_out` / `get_mark_in_out` / `clear_mark_in_out` | In/out marks (timeline or pool clip; 0-based) |
 | `detect_scene_cuts` | Detect & apply scene cuts |
 | `export_timeline` / `import_timeline` | Export / import (AAF/EDL/FCPXML/DRT/OTIO) |

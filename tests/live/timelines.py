@@ -78,6 +78,10 @@ def _clear_timeline_markers():
     except AssertionError:
         pass
 
+@test("get_timeline_markers")
+def _():
+    goto_scratch(); need("markers" in call("get_timeline_markers"))
+
 @test("add_timeline_marker")
 def _():
     goto_scratch(); _clear_timeline_markers()
