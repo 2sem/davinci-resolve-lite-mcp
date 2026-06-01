@@ -562,6 +562,52 @@ def _build_tools():
         return {"appended": len(added), "missing": missing}
 
     @tool(
+        "add_clip_to_timeline",
+        "Place a media-pool clip (by name, from the current folder) onto the "
+        "current timeline with precise control. Optional: startFrame/endFrame "
+        "(source in/out trim), trackIndex (target track, 1-based), recordFrame "
+        "(timeline frame to place at), mediaType (1=video only, 2=audio only). "
+        "Omitted fields use Resolve defaults. This is the assembly primitive that "
+        "append_clips_to_timeline (whole-clip append) does not cover.",
+        {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "startFrame": {"type": "integer"},
+                "endFrame": {"type": "integer"},
+                "trackIndex": {"type": "integer", "minimum": 1},
+                "recordFrame": {"type": "integer"},
+                "mediaType": {"type": "integer", "enum": [1, 2]},
+            },
+            "required": ["name"],
+        },
+    )
+    def add_clip_to_timeline(resolve, args):
+        project = _require_project(resolve)
+        _require_timeline(resolve)
+        mp = project.GetMediaPool()
+        folder = mp.GetCurrentFolder()
+        if not folder:
+            raise ToolError("No current media pool folder.")
+        by_name = {c.GetName(): c for c in (folder.GetClipList() or [])}
+        item = by_name.get(args["name"])
+        if not item:
+            raise ToolError(f"Clip {args['name']!r} not found in current folder.")
+
+        clip_info = {"mediaPoolItem": item}
+        for key in ("startFrame", "endFrame", "trackIndex", "recordFrame", "mediaType"):
+            if args.get(key) is not None:
+                clip_info[key] = args[key]
+
+        added = mp.AppendToTimeline([clip_info]) or []
+        if not added:
+            raise ToolError(
+                "AppendToTimeline returned nothing (check trackIndex exists and "
+                "the source in/out range is valid)."
+            )
+        return {"appended": len(added), "name": item.GetName()}
+
+    @tool(
         "create_timeline",
         "Create a new empty timeline with the given name.",
         {
