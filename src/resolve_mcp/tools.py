@@ -1307,6 +1307,36 @@ def _build_tools():
         return {"created": tl.GetName()}
 
     @tool(
+        "create_timeline_from_clips",
+        "Create a new timeline (with a unique name) from media-pool clips (by "
+        "name, in the order given, from the current folder).",
+        {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "names": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["name", "names"],
+        },
+    )
+    def create_timeline_from_clips(resolve, args):
+        project = _require_project(resolve)
+        mp = project.GetMediaPool()
+        folder = mp.GetCurrentFolder()
+        if not folder:
+            raise ToolError("No current media pool folder.")
+        by_name = {c.GetName(): c for c in (folder.GetClipList() or [])}
+        clips, missing = [], []
+        for n in args["names"]:
+            (clips if n in by_name else missing).append(by_name.get(n, n))
+        if missing:
+            raise ToolError(f"Clips not found in current folder: {[m for m in missing if isinstance(m, str)]}")
+        tl = mp.CreateTimelineFromClips(args["name"], clips)
+        if not tl:
+            raise ToolError("CreateTimelineFromClips failed (name not unique?).")
+        return {"ok": True, "created": tl.GetName(), "clips": len(clips)}
+
+    @tool(
         "delete_timeline",
         "Delete a timeline by name from the current project.",
         {
