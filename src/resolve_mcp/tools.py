@@ -2352,6 +2352,80 @@ def _build_tools():
         return {"ok": True, "name": clip.GetName()}
 
     @tool(
+        "replace_clip_preserve_subclip",
+        "Replace a media-pool clip's media (by name) while preserving its subclip "
+        "extents.",
+        {"type": "object", "properties": {"name": {"type": "string"}, "filePath": {"type": "string"}},
+         "required": ["name", "filePath"]},
+    )
+    def replace_clip_preserve_subclip(resolve, args):
+        clip = _pool_clip(resolve, args["name"])
+        if not clip.ReplaceClipPreserveSubClip(os.path.expanduser(args["filePath"])):
+            raise ToolError("ReplaceClipPreserveSubClip failed.")
+        return {"ok": True, "name": clip.GetName()}
+
+    @tool(
+        "link_full_resolution_media",
+        "Relink a media-pool clip (by name) to full-resolution media at a path.",
+        {"type": "object", "properties": {"name": {"type": "string"}, "filePath": {"type": "string"}},
+         "required": ["name", "filePath"]},
+    )
+    def link_full_resolution_media(resolve, args):
+        clip = _pool_clip(resolve, args["name"])
+        if not clip.LinkFullResolutionMedia(os.path.expanduser(args["filePath"])):
+            raise ToolError("LinkFullResolutionMedia failed.")
+        return {"ok": True, "name": clip.GetName()}
+
+    @tool(
+        "relink_clips",
+        "Relink media-pool clips (by name, from the current folder) to media "
+        "found under a folder path.",
+        {"type": "object", "properties": {
+            "names": {"type": "array", "items": {"type": "string"}},
+            "folderPath": {"type": "string"}},
+         "required": ["names", "folderPath"]},
+    )
+    def relink_clips(resolve, args):
+        project = _require_project(resolve)
+        mp = project.GetMediaPool()
+        folder = mp.GetCurrentFolder()
+        if not folder:
+            raise ToolError("No current media pool folder.")
+        by_name = {c.GetName(): c for c in (folder.GetClipList() or [])}
+        clips = [by_name[n] for n in args["names"] if n in by_name]
+        missing = [n for n in args["names"] if n not in by_name]
+        if not clips:
+            raise ToolError(f"No matching clips: {missing}")
+        if not mp.RelinkClips(clips, os.path.expanduser(args["folderPath"])):
+            raise ToolError("RelinkClips failed.")
+        return {"ok": True, "relinked": len(clips), "missing": missing}
+
+    @tool(
+        "move_folders",
+        "Move subfolders (by name) of the current folder into a target folder "
+        "(by name, searched from the root).",
+        {"type": "object", "properties": {
+            "names": {"type": "array", "items": {"type": "string"}},
+            "targetFolder": {"type": "string"}},
+         "required": ["names", "targetFolder"]},
+    )
+    def move_folders(resolve, args):
+        project = _require_project(resolve)
+        mp = project.GetMediaPool()
+        parent = mp.GetCurrentFolder()
+        if not parent:
+            raise ToolError("No current media pool folder.")
+        by_name = {f.GetName(): f for f in (parent.GetSubFolderList() or [])}
+        folders = [by_name[n] for n in args["names"] if n in by_name]
+        missing = [n for n in args["names"] if n not in by_name]
+        if not folders:
+            raise ToolError(f"No matching subfolders: {missing}")
+        target = _find_folder(mp, args["targetFolder"])
+        if not mp.MoveFolders(folders, target):
+            raise ToolError("MoveFolders failed.")
+        return {"ok": True, "moved": len(folders), "missing": missing, "to": target.GetName()}
+
+    @tool(
         "get_selected_clips",
         "List currently selected media-pool clips.",
         None,
