@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.6.0
+
+Comprehensive coverage of the **free (Lite) API surface** — now **123 tools**
+(+46), all live-verified on DaVinci Resolve Lite.
+
+### Added
+- **Bins/folders:** `add_subfolder`, `set_current_folder`, `delete_subfolders`, `move_clips_to_folder`.
+- **Mark in/out:** `set_mark_in_out`, `get_mark_in_out`, `clear_mark_in_out` (timeline or pool clip; 0-based frames).
+- **Compound/Fusion clips:** `create_compound_clip`, `create_fusion_clip`; `set_timeline_name`, `set_timeline_start_timecode`.
+- **Color depth:** `set_cdl`, `set_clip_enabled`, grade versions (`list`/`add`/`load`/`delete`), `copy_grade`, color groups (`list`/`add`/`delete`/`assign`/`remove`), `export_lut`.
+- **Media-item:** `link_proxy`, `unlink_proxy`, `replace_clip`, `get_selected_clips`, `set_selected_clip`.
+- **Render:** `save_render_preset`, `delete_render_preset`, `load_render_preset`, `get_render_mode`, `set_render_mode`, `get_render_resolutions`, `get_quick_export_presets`, `quick_export`.
+- **Misc:** `import_into_timeline`, `insert_audio_at_playhead`, `grab_all_stills`, `reveal_in_storage`, `export_metadata`, `refresh_lut_list`, gallery albums (`list`/`create`/`set_current`).
+
+### Notes
+- Studio-only features (transcribe, subtitles-from-audio, magic mask, stabilize, smart reframe, Dolby Vision, voice isolation, cloud projects) are intentionally omitted — they do not run on the free edition.
+- `export_lut` requires the Color page open; `set_mark_in_out` frames are 0-based.
+
 ## 0.5.0
 
 Adds source-clip (media pool) tagging — now **77 tools**.
