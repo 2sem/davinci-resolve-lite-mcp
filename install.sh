@@ -64,6 +64,10 @@ fi
 echo "Installed ($MODE) into: $TARGET_DIR"
 for name in "${ENTRIES[@]}"; do echo "  $name"; done
 echo
+echo "Edition (Studio vs free) is detected automatically at runtime — Studio-only"
+echo "tools (e.g. detect_scene_cuts) return a clean 'requires Studio' error on the"
+echo "free edition instead of opening the upgrade dialog. No configuration needed."
+echo
 echo "Next:"
 echo "  1. Workspace > Scripts > Utility > davinci_mcp_server   (shows on every page)"
 echo "  2. Console / logfile prints the MCP endpoint + port."
