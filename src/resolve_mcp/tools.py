@@ -1281,6 +1281,104 @@ def _build_tools():
             )
         return {"ok": True, "scope": scope, "name": args["name"], "value": args["value"]}
 
+    @tool(
+        "save_project",
+        "Save the current project (persists changes to disk).",
+        None,
+    )
+    def save_project(resolve, args):
+        pm = resolve.GetProjectManager()
+        if not pm or not pm.SaveProject():
+            raise ToolError("SaveProject failed.")
+        return {"ok": True}
+
+    @tool(
+        "create_project",
+        "Create and open a new project with a unique name.",
+        {
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+            "required": ["name"],
+        },
+    )
+    def create_project(resolve, args):
+        pm = resolve.GetProjectManager()
+        project = pm.CreateProject(args["name"]) if pm else None
+        if not project:
+            raise ToolError(f"CreateProject({args['name']!r}) failed (name not unique?).")
+        return {"ok": True, "created": project.GetName()}
+
+    @tool(
+        "close_project",
+        "Close the current project WITHOUT saving. Call save_project first to "
+        "keep changes.",
+        None,
+    )
+    def close_project(resolve, args):
+        pm = resolve.GetProjectManager()
+        project = pm.GetCurrentProject() if pm else None
+        if not project:
+            raise ToolError("No project is open.")
+        name = project.GetName()
+        if not pm.CloseProject(project):
+            raise ToolError("CloseProject failed.")
+        return {"ok": True, "closed": name}
+
+    @tool(
+        "duplicate_timeline",
+        "Duplicate the current timeline. Optional 'name' for the copy.",
+        {
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+        },
+    )
+    def duplicate_timeline(resolve, args):
+        tl = _require_timeline(resolve)
+        dup = tl.DuplicateTimeline(args["name"]) if args.get("name") else tl.DuplicateTimeline()
+        if not dup:
+            raise ToolError("DuplicateTimeline failed.")
+        return {"ok": True, "created": dup.GetName()}
+
+    @tool(
+        "detect_scene_cuts",
+        "Detect and apply scene cuts along the current timeline.",
+        None,
+    )
+    def detect_scene_cuts(resolve, args):
+        tl = _require_timeline(resolve)
+        if not tl.DetectSceneCuts():
+            raise ToolError("DetectSceneCuts failed.")
+        return {"ok": True}
+
+    def _current_still_album(resolve):
+        project = _require_project(resolve)
+        gallery = project.GetGallery()
+        album = gallery.GetCurrentStillAlbum() if gallery else None
+        if not album:
+            raise ToolError("No current gallery still album.")
+        return album
+
+    @tool(
+        "get_gallery_stills_count",
+        "Return how many stills are in the current gallery album.",
+        None,
+    )
+    def get_gallery_stills_count(resolve, args):
+        album = _current_still_album(resolve)
+        return {"count": len(album.GetStills() or [])}
+
+    @tool(
+        "clear_gallery_stills",
+        "Delete all stills in the current gallery album.",
+        None,
+    )
+    def clear_gallery_stills(resolve, args):
+        album = _current_still_album(resolve)
+        stills = album.GetStills() or []
+        if stills and not album.DeleteStills(stills):
+            raise ToolError("DeleteStills failed.")
+        return {"ok": True, "deleted": len(stills)}
+
     return tools
 
 
