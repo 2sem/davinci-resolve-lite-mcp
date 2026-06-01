@@ -1,69 +1,75 @@
 #!/usr/bin/env bash
 #
-# Install the DaVinci Resolve Lite MCP server into the Resolve
-# "Scripts > Edit" menu folder. After install, launch it from
-# DaVinci Resolve: Workspace > Scripts > Edit > davinci_mcp_server
+# Install the DaVinci Resolve MCP server into the Resolve "Scripts > Utility"
+# menu folder (Utility shows on every page). Source of truth stays in this repo;
+# install COPIES the runtime files where Resolve can read them.
 #
-# IMPORTANT: DaVinci Resolve Lite (App Store) is sandboxed. Its sandbox can
-# only read a handful of locations (its own container, ~/Movies, user-selected
-# files). A symlink that points OUTSIDE those locations (e.g. into this repo
-# under ~/Projects) cannot be followed by the sandboxed app, so the script
-# silently never runs. Therefore on Lite we COPY the scripts into the app's
-# own container, which is always readable. Re-run this script after updating.
+# Two facts that dictate this design (both verified on DaVinci Resolve Lite):
+#   1. Menu scan: Resolve only enumerates the category folders
+#      (Utility / Comp / Tool / Edit / Color / Deliver). A custom folder name is
+#      NOT shown. So entry scripts must live under a category; helper modules can
+#      live in a NON-category folder to stay hidden from the menu.
+#   2. Sandbox: Lite cannot follow a symlink whose target is outside its allowed
+#      locations (e.g. this repo under ~/Projects) — the script silently never
+#      runs. So on Lite we COPY into the container. Re-run after pulling updates.
 #
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SOURCES=(
-  "$REPO_DIR/src/davinci_mcp_server.py"
-  "$REPO_DIR/src/stop_davinci_mcp_server.py"
-)
+SRC="$REPO_DIR/src"
+ENTRIES=(davinci_mcp_server.py stop_davinci_mcp_server.py)
+# Package of helper modules (optional; present once the server is split up).
+PKG="resolve_mcp"
 
-LITE_DIR="$HOME/Library/Containers/com.blackmagic-design.DaVinciResolveLite/Data/Library/Application Support/Fusion/Scripts/Edit"
-STD_DIR="$HOME/Library/Application Support/Blackmagic Design/DaVinci Resolve/Fusion/Scripts/Edit"
+LITE_SCRIPTS="$HOME/Library/Containers/com.blackmagic-design.DaVinciResolveLite/Data/Library/Application Support/Fusion/Scripts"
+STD_SCRIPTS="$HOME/Library/Application Support/Blackmagic Design/DaVinci Resolve/Fusion/Scripts"
 
-if [[ -d "$(dirname "$LITE_DIR")" ]]; then
-  TARGET_DIR="$LITE_DIR"
-  MODE="copy"   # sandboxed: must live inside the container
-  echo "Detected DaVinci Resolve Lite (sandboxed) -> installing by COPY."
-elif [[ -d "$(dirname "$STD_DIR")" ]]; then
-  TARGET_DIR="$STD_DIR"
-  MODE="symlink"   # not sandboxed: symlink so repo edits apply live
-  echo "Detected DaVinci Resolve (standard install) -> installing by symlink."
+if [[ -d "$LITE_SCRIPTS" ]]; then
+  SCRIPTS="$LITE_SCRIPTS"; MODE="copy"; echo "Detected DaVinci Resolve Lite (sandboxed) -> COPY install."
+elif [[ -d "$STD_SCRIPTS" ]]; then
+  SCRIPTS="$STD_SCRIPTS"; MODE="symlink"; echo "Detected DaVinci Resolve (standard install) -> symlink install."
 else
-  echo "Could not find a DaVinci Resolve scripts folder."
-  echo "Open Resolve once so it creates its Fusion/Scripts folder, then retry."
+  echo "Could not find a DaVinci Resolve Fusion/Scripts folder."
+  echo "Open Resolve once so it creates it, then retry."
   exit 1
 fi
 
-for src in "${SOURCES[@]}"; do
-  [[ -f "$src" ]] || { echo "Source not found: $src"; exit 1; }
-done
-
+TARGET_DIR="$SCRIPTS/Utility"          # entry scripts: a scanned category -> appear in menu
+MODULES_DIR="$SCRIPTS/MCP/$PKG"        # helper modules: NON-category folder -> hidden from menu
 mkdir -p "$TARGET_DIR"
-echo "Installed into: $TARGET_DIR"
-for src in "${SOURCES[@]}"; do
-  dest="$TARGET_DIR/$(basename "$src")"
-  rm -f "$dest"
-  if [[ "$MODE" == "copy" ]]; then
-    cp "$src" "$dest"
-  else
-    ln -s "$src" "$dest"
-  fi
-  echo "  $(basename "$dest")"
+
+deploy() {  # deploy <src-path> <dest-path>
+  local src="$1" dest="$2"
+  rm -rf "$dest"
+  if [[ "$MODE" == "symlink" ]]; then ln -s "$src" "$dest"; else cp -R "$src" "$dest"; fi
+}
+
+# Clean any previous installs of ours (old Edit copies, Utility, stray MCP links).
+for dir in "$SCRIPTS/Edit" "$SCRIPTS/Utility"; do
+  for name in "${ENTRIES[@]}"; do rm -f "$dir/$name"; done
 done
 
+for name in "${ENTRIES[@]}"; do
+  [[ -f "$SRC/$name" ]] || { echo "Source not found: $SRC/$name"; exit 1; }
+  deploy "$SRC/$name" "$TARGET_DIR/$name"
+done
+
+# Ship the helper package (if it exists yet) to the hidden, non-scanned folder.
+if [[ -d "$SRC/$PKG" ]]; then
+  mkdir -p "$(dirname "$MODULES_DIR")"
+  deploy "$SRC/$PKG" "$MODULES_DIR"
+  echo "Modules ($PKG) -> $MODULES_DIR  (hidden from menu)"
+fi
+
+echo "Installed ($MODE) into: $TARGET_DIR"
+for name in "${ENTRIES[@]}"; do echo "  $name"; done
 echo
-echo "Next steps:"
-echo "  1. Start:  Workspace > Scripts > Edit > davinci_mcp_server"
-echo "  2. The Console (Workspace > Console) prints the MCP endpoint + port."
-echo "  3. Register with Claude Code, e.g.:"
-echo "       claude mcp add --transport http davinci http://127.0.0.1:8765/mcp"
-echo "  4. Stop:   Workspace > Scripts > Edit > stop_davinci_mcp_server"
-echo "             (or ./stop.sh, or quit Resolve)"
+echo "Next:"
+echo "  1. Workspace > Scripts > Utility > davinci_mcp_server   (shows on every page)"
+echo "  2. Console / logfile prints the MCP endpoint + port."
+echo "  3. claude mcp add --transport http davinci http://127.0.0.1:8765/mcp"
+echo "  4. Stop:  Workspace > Scripts > Utility > stop_davinci_mcp_server  (or ./stop.sh)"
 echo
-echo "Output prints to the Resolve Console, and is also mirrored to a logfile"
-echo "(the server runs continuously, so Console output may buffer):"
-echo "  $HOME/Movies/davinci-resolve-lite-mcp.log"
-echo "  View live with:  ./logs.sh"
-[[ "$MODE" == "copy" ]] && echo && echo "NOTE: Lite install is a COPY. Re-run ./install.sh after you pull updates."
+echo "Logs (Console output is also mirrored here):"
+echo "  $HOME/Movies/davinci-resolve-lite-mcp.log   (./logs.sh to tail)"
+[[ "$MODE" == "copy" ]] && echo && echo "NOTE: Lite install is a COPY. Re-run ./install.sh after editing the source."
