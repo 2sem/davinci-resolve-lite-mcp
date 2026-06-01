@@ -566,6 +566,48 @@ def _build_tools():
         return {"ok": True, "item": item.GetName()}
 
     @tool(
+        "apply_grade_from_drx",
+        "Apply a saved .drx PowerGrade (still) to a timeline clip's node graph. "
+        "gradeMode: 0 = no keyframes (default), 1 = source-timecode aligned, "
+        "2 = start-frames aligned.",
+        {
+            "type": "object",
+            "properties": {
+                **_ITEM_ADDR,
+                "drxPath": {"type": "string"},
+                "gradeMode": {"type": "integer", "enum": [0, 1, 2], "default": 0},
+            },
+            "required": ["trackType", "trackIndex", "itemIndex", "drxPath"],
+        },
+    )
+    def apply_grade_from_drx(resolve, args):
+        item, graph = _node_graph(resolve, args)
+        path = os.path.expanduser(args["drxPath"])
+        if not os.path.exists(path):
+            raise ToolError(f"File not found: {path}")
+        if not graph.ApplyGradeFromDRX(path, args.get("gradeMode", 0)):
+            raise ToolError("ApplyGradeFromDRX failed.")
+        return {"ok": True, "item": item.GetName(), "drxPath": path}
+
+    @tool(
+        "get_node_tools",
+        "List the tools/operators used in a node (1-based nodeIndex) of a "
+        "timeline clip's node graph.",
+        {
+            "type": "object",
+            "properties": {**_ITEM_ADDR, "nodeIndex": {"type": "integer", "minimum": 1}},
+            "required": ["trackType", "trackIndex", "itemIndex", "nodeIndex"],
+        },
+    )
+    def get_node_tools(resolve, args):
+        item, graph = _node_graph(resolve, args)
+        return {
+            "item": item.GetName(),
+            "nodeIndex": args["nodeIndex"],
+            "tools": graph.GetToolsInNode(args["nodeIndex"]) or [],
+        }
+
+    @tool(
         "grab_still",
         "Grab a still from the current clip into the gallery (Color page). "
         "Switch to the Color page first for reliable results.",
