@@ -788,6 +788,24 @@ def _build_tools():
         return {"ok": True, "inserted": item.GetName()}
 
     @tool(
+        "get_current_video_item",
+        "Return the video timeline clip currently under the playhead (name + "
+        "track type/index), or null if none.",
+        None,
+    )
+    def get_current_video_item(resolve, args):
+        tl = _require_timeline(resolve)
+        item = tl.GetCurrentVideoItem()
+        if not item:
+            return {"item": None}
+        track = item.GetTrackTypeAndIndex() or []
+        return {
+            "item": item.GetName(),
+            "trackType": track[0] if len(track) > 0 else None,
+            "trackIndex": track[1] if len(track) > 1 else None,
+        }
+
+    @tool(
         "get_timecode",
         "Get the current playhead timecode of the current timeline.",
         None,
