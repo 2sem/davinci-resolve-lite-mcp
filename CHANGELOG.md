@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.8.2
+
+Edition-aware gating + a live integration test suite.
+
+### Added
+- Runtime edition detection: `get_status` reports `studio` (bool) via
+  `GetProductName`. Studio-only tools now refuse on the free edition with a
+  clean "requires Studio" error **without** calling the gated API — so they no
+  longer trigger the upgrade dialog that wedges UI automation. Applied to
+  `detect_scene_cuts` (`_require_studio` helper for future Studio tools).
+- `tests/live_test.py`: one live test per tool (selectable: `python3
+  tests/live_test.py <tool>`), reversible, with Studio/heavy tools skipped and
+  file/destructive tools checked via their error path. 135 pass / 12 skip.
+
+### Notes
+- A few marker/still tests are sensitive to Resolve session state and skip
+  (with a reason) on their known signature; the underlying tools are verified.
+
 ## 0.8.1
 
 Hardening from a code review of the v0.7.0/v0.8.0 tool delta (no high-severity
