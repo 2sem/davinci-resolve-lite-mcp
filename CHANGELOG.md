@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.8.3
+
+Internal refactor only — no tool/behavior change (148 tools).
+
+### Changed
+- Split the 2853-line `tools.py` monolith into a `resolve_mcp/tools/` package by
+  area (status, projects, timelines, tracks, editing, color, mediapool, storage,
+  render, gallery) + `_helpers` + a `register`/`TOOLS` `__init__`. Public surface
+  unchanged: `from resolve_mcp.tools import TOOLS, ToolError`.
+- Split `tests/live_test.py` into a `tests/live/` package mirroring the same
+  areas; CLI and the 147 per-feature tests are unchanged.
+
 ## 0.8.2
 
 Edition-aware gating + a live integration test suite.
