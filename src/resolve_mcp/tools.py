@@ -922,6 +922,73 @@ def _build_tools():
         }
 
     @tool(
+        "stop_rendering",
+        "Stop any render currently in progress.",
+        None,
+    )
+    def stop_rendering(resolve, args):
+        project = _require_project(resolve)
+        project.StopRendering()
+        return {"ok": True, "rendering": bool(project.IsRenderingInProgress())}
+
+    @tool(
+        "delete_render_job",
+        "Delete a render job from the queue by job id. Omit 'jobId' to clear the "
+        "entire queue.",
+        {
+            "type": "object",
+            "properties": {"jobId": {"type": "string"}},
+        },
+    )
+    def delete_render_job(resolve, args):
+        project = _require_project(resolve)
+        if args.get("jobId"):
+            if not project.DeleteRenderJob(args["jobId"]):
+                raise ToolError(f"DeleteRenderJob({args['jobId']!r}) failed.")
+            return {"ok": True, "deleted": args["jobId"]}
+        if not project.DeleteAllRenderJobs():
+            raise ToolError("DeleteAllRenderJobs failed.")
+        return {"ok": True, "deleted": "all"}
+
+    @tool(
+        "get_render_formats",
+        "List available render formats (format -> file extension). Pass 'format' "
+        "to instead list codecs (description -> codec name) for that format.",
+        {
+            "type": "object",
+            "properties": {"format": {"type": "string"}},
+        },
+    )
+    def get_render_formats(resolve, args):
+        project = _require_project(resolve)
+        fmt = args.get("format")
+        if fmt:
+            return {"format": fmt, "codecs": project.GetRenderCodecs(fmt) or {}}
+        return {"formats": project.GetRenderFormats() or {}}
+
+    @tool(
+        "set_render_format_codec",
+        "Set the current render format (e.g. 'mp4', 'mov') and codec (e.g. "
+        "'H264', 'H265'). Use get_render_formats to discover valid values.",
+        {
+            "type": "object",
+            "properties": {
+                "format": {"type": "string"},
+                "codec": {"type": "string"},
+            },
+            "required": ["format", "codec"],
+        },
+    )
+    def set_render_format_codec(resolve, args):
+        project = _require_project(resolve)
+        if not project.SetCurrentRenderFormatAndCodec(args["format"], args["codec"]):
+            raise ToolError(
+                f"SetCurrentRenderFormatAndCodec({args['format']!r}, "
+                f"{args['codec']!r}) failed (invalid format/codec)."
+            )
+        return {"ok": True, **project.GetCurrentRenderFormatAndCodec()}
+
+    @tool(
         "export_timeline",
         "Export the current timeline to a file. exportType one of: "
         "AAF, EDL, XML(fcpxml), DRT, OTIO. Provide a full filePath.",
