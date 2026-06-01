@@ -147,7 +147,25 @@ docs/TOOLS.md                    full per-tool reference
 fallbacks/                       documented gotchas + fixes
 ```
 
-Run the offline tests with `python3 tests/test_server.py`.
+## Testing
+
+- **Offline** (no Resolve, no server) — import + dispatcher + tool-count smoke:
+  ```bash
+  python3 tests/test_server.py
+  ```
+- **Live integration** — one test per tool against a running server (Resolve open
+  with a project + a media clip, and `davinci_mcp_server` launched):
+  ```bash
+  python3 tests/live_test.py                 # all features
+  python3 tests/live_test.py set_timecode    # run the test(s) for given feature(s)
+  ```
+  Each test name equals the tool name, so when you change a tool you can run just
+  its test: `python3 tests/live_test.py <tool>`. Tests are reversible (scratch
+  timeline + temp files, cleaned up). File-dependent and session-destructive
+  tools are checked via their error path; Studio-only / heavy tools (e.g.
+  `detect_scene_cuts`, `render_current_timeline`, `quick_export`) are skipped
+  with a reason. A few marker / still tests depend on a clean Resolve session
+  state — re-run them after a fresh launch if they flake.
 
 ## Scope
 

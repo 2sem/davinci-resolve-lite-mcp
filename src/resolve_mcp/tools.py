@@ -1863,7 +1863,9 @@ def _build_tools():
 
     @tool(
         "detect_scene_cuts",
-        "Detect and apply scene cuts along the current timeline.",
+        "Detect and apply scene cuts along the current timeline. NOTE: Scene Cut "
+        "Detection is a Studio-only feature; on the free edition this opens the "
+        "upgrade dialog and returns an error.",
         None,
     )
     def detect_scene_cuts(resolve, args):
