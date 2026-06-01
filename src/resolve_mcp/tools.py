@@ -986,6 +986,130 @@ def _build_tools():
         return {"ok": True, "name": clip.GetName()}
 
     @tool(
+        "get_pool_clip_tags",
+        "Return a media-pool clip's color label, flags and markers (by name).",
+        {
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+            "required": ["name"],
+        },
+    )
+    def get_pool_clip_tags(resolve, args):
+        clip = _pool_clip(resolve, args["name"])
+        return {
+            "name": clip.GetName(),
+            "clipColor": clip.GetClipColor(),
+            "flags": clip.GetFlagList() or [],
+            "markers": clip.GetMarkers() or {},
+        }
+
+    @tool(
+        "set_pool_clip_color",
+        "Set a media-pool clip's color label (by name). Empty 'color' clears it.",
+        {
+            "type": "object",
+            "properties": {"name": {"type": "string"}, "color": {"type": "string"}},
+            "required": ["name", "color"],
+        },
+    )
+    def set_pool_clip_color(resolve, args):
+        clip = _pool_clip(resolve, args["name"])
+        ok = clip.ClearClipColor() if args["color"] == "" else clip.SetClipColor(args["color"])
+        if not ok:
+            raise ToolError(f"Setting clip color to {args['color']!r} failed.")
+        return {"ok": True, "name": clip.GetName(), "clipColor": clip.GetClipColor()}
+
+    @tool(
+        "add_pool_clip_flag",
+        "Add a colored flag to a media-pool clip (by name).",
+        {
+            "type": "object",
+            "properties": {"name": {"type": "string"}, "color": {"type": "string"}},
+            "required": ["name", "color"],
+        },
+    )
+    def add_pool_clip_flag(resolve, args):
+        clip = _pool_clip(resolve, args["name"])
+        if not clip.AddFlag(args["color"]):
+            raise ToolError(f"AddFlag({args['color']!r}) failed.")
+        return {"ok": True, "name": clip.GetName(), "flags": clip.GetFlagList() or []}
+
+    @tool(
+        "clear_pool_clip_flags",
+        "Clear flags from a media-pool clip (by name). 'color' defaults to 'All'.",
+        {
+            "type": "object",
+            "properties": {"name": {"type": "string"}, "color": {"type": "string", "default": "All"}},
+            "required": ["name"],
+        },
+    )
+    def clear_pool_clip_flags(resolve, args):
+        clip = _pool_clip(resolve, args["name"])
+        if not clip.ClearFlags(args.get("color", "All")):
+            raise ToolError("ClearFlags failed (no matching flag?).")
+        return {"ok": True, "name": clip.GetName(), "flags": clip.GetFlagList() or []}
+
+    @tool(
+        "add_pool_clip_marker",
+        "Add a marker on a media-pool clip at 'frame' (source frame offset).",
+        {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "frame": {"type": "integer"},
+                "color": {"type": "string", "default": "Blue"},
+                "markerName": {"type": "string", "default": ""},
+                "note": {"type": "string", "default": ""},
+                "duration": {"type": "integer", "default": 1},
+            },
+            "required": ["name", "frame"],
+        },
+    )
+    def add_pool_clip_marker(resolve, args):
+        clip = _pool_clip(resolve, args["name"])
+        ok = clip.AddMarker(
+            args["frame"],
+            args.get("color", "Blue"),
+            args.get("markerName", ""),
+            args.get("note", ""),
+            args.get("duration", 1),
+            "",
+        )
+        if not ok:
+            raise ToolError("AddMarker failed (a marker may already exist at that frame).")
+        return {"ok": True, "name": clip.GetName(), "frame": args["frame"]}
+
+    @tool(
+        "delete_pool_clip_marker",
+        "Delete marker(s) on a media-pool clip: give 'frame' (source offset) or "
+        "'color' ('All' = every marker). Provide exactly one.",
+        {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "frame": {"type": "integer"},
+                "color": {"type": "string"},
+            },
+            "required": ["name"],
+        },
+    )
+    def delete_pool_clip_marker(resolve, args):
+        clip = _pool_clip(resolve, args["name"])
+        has_frame = args.get("frame") is not None
+        has_color = bool(args.get("color"))
+        if has_frame == has_color:
+            raise ToolError("Provide exactly one of 'frame' or 'color'.")
+        if has_frame:
+            ok = clip.DeleteMarkerAtFrame(args["frame"])
+            target = {"frame": args["frame"]}
+        else:
+            ok = clip.DeleteMarkersByColor(args["color"])
+            target = {"color": args["color"]}
+        if not ok:
+            raise ToolError(f"No clip marker matched {target}.")
+        return {"ok": True, "name": clip.GetName(), **target}
+
+    @tool(
         "append_clips_to_timeline",
         "Append media pool clips (by name, from the current folder) to the current timeline.",
         {
