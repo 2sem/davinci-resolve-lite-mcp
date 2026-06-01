@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.0
+
+Completes the medium-value free/Lite gaps — now **148 tools** (+15).
+
+### Added
+- `get_current_video_item` — the clip under the playhead.
+- Media management: `relink_clips`, `move_folders`, `link_full_resolution_media`, `replace_clip_preserve_subclip`.
+- Color groups: `get_color_group_clips`, `rename_color_group`, `get_color_group_node_graph` (pre/post-clip); PowerGrade albums: `list_powergrade_albums`, `create_powergrade_album`.
+- Project config I/O: `restore_project`, `get_project_presets`, `set_project_preset`, `import_render_preset`, `export_render_preset`.
+
+### Notes
+- `add_subfolder` makes the new folder current (call `set_current_folder` to add siblings).
+- `export_render_preset` only exports user presets (not factory) and writes a preset bundle.
+
 ## 0.7.0
 
 Fills the remaining high-value free/Lite gaps — now **133 tools** (+10).
