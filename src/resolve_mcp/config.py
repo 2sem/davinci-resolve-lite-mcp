@@ -3,7 +3,7 @@
 import os
 
 SERVER_NAME = "davinci-resolve-lite-mcp"
-SERVER_VERSION = "0.5.0"
+SERVER_VERSION = "0.6.0"
 PROTOCOL_VERSION = "2025-06-18"
 
 DEFAULT_HOST = os.environ.get("DAVINCI_MCP_HOST", "127.0.0.1")
