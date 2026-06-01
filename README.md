@@ -149,6 +149,16 @@ fallbacks/                       documented gotchas + fixes
 
 Run the offline tests with `python3 tests/test_server.py`.
 
+## Scope
+
+This server targets the **free (Lite) edition** and intentionally covers only
+API that runs there. Studio-only / paid features are **deliberately omitted**
+(they no-op or error on Lite), namely: audio transcription, subtitles-from-audio,
+Magic Mask, Stabilize, Smart Reframe, Dolby Vision analysis, Voice Isolation,
+and cloud projects / database management. The remaining unwrapped methods are
+trivial accessors (`GetUniqueId`, cache modes, Fusion-comp internals, takes,
+stereo/3D, layout & burn-in presets, mattes) — not functional gaps.
+
 ## Known limitations
 
 - Clips are addressed by **name within the current media-pool folder**; if two
