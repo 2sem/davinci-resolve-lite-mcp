@@ -280,6 +280,136 @@ def _build_tools():
             )
         return {"ok": True, "item": item.GetName(), "property": prop, "value": value}
 
+    @tool(
+        "get_clip_tags",
+        "Return a timeline clip's color label, flags and markers. Address by "
+        "trackType + trackIndex + itemIndex (1-based).",
+        {
+            "type": "object",
+            "properties": dict(_ITEM_ADDR),
+            "required": ["trackType", "trackIndex", "itemIndex"],
+        },
+    )
+    def get_clip_tags(resolve, args):
+        item = _track_item(resolve, args)
+        return {
+            "item": item.GetName(),
+            "clipColor": item.GetClipColor(),
+            "flags": item.GetFlagList() or [],
+            "markers": item.GetMarkers() or {},
+        }
+
+    @tool(
+        "set_clip_color",
+        "Set a timeline clip's color label (e.g. Orange, Yellow, Green, Blue, "
+        "Purple, Pink, Brown). Pass an empty 'color' to clear it.",
+        {
+            "type": "object",
+            "properties": {**_ITEM_ADDR, "color": {"type": "string"}},
+            "required": ["trackType", "trackIndex", "itemIndex", "color"],
+        },
+    )
+    def set_clip_color(resolve, args):
+        item = _track_item(resolve, args)
+        color = args["color"]
+        ok = item.ClearClipColor() if color == "" else item.SetClipColor(color)
+        if not ok:
+            raise ToolError(f"Setting clip color to {color!r} failed.")
+        return {"ok": True, "item": item.GetName(), "clipColor": item.GetClipColor()}
+
+    @tool(
+        "add_clip_flag",
+        "Add a colored flag to a timeline clip (e.g. Blue, Cyan, Green, Yellow, "
+        "Red, Pink, Purple).",
+        {
+            "type": "object",
+            "properties": {**_ITEM_ADDR, "color": {"type": "string"}},
+            "required": ["trackType", "trackIndex", "itemIndex", "color"],
+        },
+    )
+    def add_clip_flag(resolve, args):
+        item = _track_item(resolve, args)
+        if not item.AddFlag(args["color"]):
+            raise ToolError(f"AddFlag({args['color']!r}) failed.")
+        return {"ok": True, "item": item.GetName(), "flags": item.GetFlagList() or []}
+
+    @tool(
+        "clear_clip_flags",
+        "Clear flags from a timeline clip. 'color' defaults to 'All'.",
+        {
+            "type": "object",
+            "properties": {**_ITEM_ADDR, "color": {"type": "string", "default": "All"}},
+            "required": ["trackType", "trackIndex", "itemIndex"],
+        },
+    )
+    def clear_clip_flags(resolve, args):
+        item = _track_item(resolve, args)
+        if not item.ClearFlags(args.get("color", "All")):
+            raise ToolError("ClearFlags failed (no matching flag?).")
+        return {"ok": True, "item": item.GetName(), "flags": item.GetFlagList() or []}
+
+    @tool(
+        "add_clip_marker",
+        "Add a marker on a timeline clip at 'frame' (offset within the clip). "
+        "Address by trackType + trackIndex + itemIndex (1-based).",
+        {
+            "type": "object",
+            "properties": {
+                **_ITEM_ADDR,
+                "frame": {"type": "integer"},
+                "color": {"type": "string", "default": "Blue"},
+                "name": {"type": "string", "default": ""},
+                "note": {"type": "string", "default": ""},
+                "duration": {"type": "integer", "default": 1},
+            },
+            "required": ["trackType", "trackIndex", "itemIndex", "frame"],
+        },
+    )
+    def add_clip_marker(resolve, args):
+        item = _track_item(resolve, args)
+        ok = item.AddMarker(
+            args["frame"],
+            args.get("color", "Blue"),
+            args.get("name", ""),
+            args.get("note", ""),
+            args.get("duration", 1),
+            "",
+        )
+        if not ok:
+            raise ToolError("AddMarker failed (a marker may already exist at that frame).")
+        return {"ok": True, "item": item.GetName(), "frame": args["frame"]}
+
+    @tool(
+        "delete_clip_marker",
+        "Delete marker(s) on a timeline clip: give 'frame' (offset within the "
+        "clip) or 'color' (all of that color; 'All' = every marker). Provide "
+        "exactly one of frame/color.",
+        {
+            "type": "object",
+            "properties": {
+                **_ITEM_ADDR,
+                "frame": {"type": "integer"},
+                "color": {"type": "string"},
+            },
+            "required": ["trackType", "trackIndex", "itemIndex"],
+        },
+    )
+    def delete_clip_marker(resolve, args):
+        item = _track_item(resolve, args)
+        has_frame = args.get("frame") is not None
+        has_color = bool(args.get("color"))
+        if has_frame == has_color:
+            raise ToolError("Provide exactly one of 'frame' or 'color'.")
+        if has_frame:
+            ok = item.DeleteMarkerAtFrame(args["frame"])
+            target = {"frame": args["frame"]}
+        else:
+            ok = item.DeleteMarkersByColor(args["color"])
+            target = {"color": args["color"]}
+        if not ok:
+            raise ToolError(f"No clip marker matched {target}.")
+        return {"ok": True, "item": item.GetName(), **target}
+
     _TRACK_ADDR = {
         "trackType": {"type": "string", "enum": ["video", "audio", "subtitle"]},
         "trackIndex": {"type": "integer", "minimum": 1},
