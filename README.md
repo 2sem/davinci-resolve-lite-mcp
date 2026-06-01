@@ -118,7 +118,7 @@ endpoint, scanning the same port range the server uses on startup.
 
 ## Tools
 
-52 tools, all exercised live against DaVinci Resolve Lite.
+64 tools, all exercised live against DaVinci Resolve Lite.
 
 **Status & navigation**
 | Tool | What it does |
@@ -133,10 +133,12 @@ endpoint, scanning the same port range the server uses on startup.
 | `list_projects` / `load_project` | Browse and load projects |
 | `get_project_info` | Name, framerate, resolution, timeline count |
 | `list_timelines` / `set_current_timeline` | Browse and switch timelines |
-| `create_timeline` / `delete_timeline` | Create / delete a timeline |
+| `create_timeline` / `delete_timeline` / `duplicate_timeline` | Create / delete / duplicate a timeline |
 | `get_timeline_info` | Frame range, timecode, track counts |
 | `get_timecode` / `set_timecode` | Read / move the playhead |
 | `add_timeline_marker` / `delete_timeline_marker` | Timeline markers (by frame or color) |
+| `detect_scene_cuts` | Detect & apply scene cuts on the timeline |
+| `save_project` / `create_project` / `close_project` | Project lifecycle |
 
 **Tracks**
 | Tool | What it does |
@@ -163,6 +165,14 @@ endpoint, scanning the same port range the server uses on startup.
 | `get_clip_metadata` / `set_clip_metadata` / `rename_clip` | Clip metadata and rename |
 | `list_storage_volumes` / `browse_storage` | List volumes / browse a disk folder |
 | `add_storage_items_to_pool` | Import file/folder paths from disk into the pool |
+
+**Color grading**
+| Tool | What it does |
+|------|--------------|
+| `get_node_graph` | Inspect a clip's color node graph (count, labels, LUTs) |
+| `set_node_lut` / `set_node_enabled` | Apply a LUT to / enable a node |
+| `reset_grades` | Reset all grades on a clip's node graph |
+| `grab_still` / `get_gallery_stills_count` / `clear_gallery_stills` | Grab / count / clear gallery stills |
 
 **Render & export**
 | Tool | What it does |
