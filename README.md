@@ -118,7 +118,7 @@ endpoint, scanning the same port range the server uses on startup.
 
 ## Tools
 
-71 tools, all exercised live against DaVinci Resolve Lite.
+77 tools, all exercised live against DaVinci Resolve Lite.
 
 **Status & navigation**
 | Tool | What it does |
@@ -165,6 +165,9 @@ endpoint, scanning the same port range the server uses on startup.
 | `list_media_pool` / `import_media` / `delete_clip` | Browse / import / delete pool clips |
 | `get_clip_properties` / `set_clip_property` | Read/write clip properties (resolution, fps…) |
 | `get_clip_metadata` / `set_clip_metadata` / `rename_clip` | Clip metadata and rename |
+| `get_pool_clip_tags` / `set_pool_clip_color` | Source-clip color, flags, markers |
+| `add_pool_clip_flag` / `clear_pool_clip_flags` | Source-clip flags |
+| `add_pool_clip_marker` / `delete_pool_clip_marker` | Source-clip markers |
 | `list_storage_volumes` / `browse_storage` | List volumes / browse a disk folder |
 | `add_storage_items_to_pool` | Import file/folder paths from disk into the pool |
 
