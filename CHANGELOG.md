@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0
+
+Rounds out timeline editing (now **71 tools**).
+
+### Added
+- `insert_title`, `insert_fusion_title`, `insert_generator` — insert a
+  title/generator at the playhead.
+- `delete_timeline_item` — delete a clip from the timeline (optional ripple).
+
 ## 0.3.0
 
 Adds import / backup symmetry (now **67 tools**).
