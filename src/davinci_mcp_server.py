@@ -823,6 +823,50 @@ def _build_tools():
             raise ToolError("Timeline Export failed.")
         return {"ok": True, "filePath": path}
 
+    @tool(
+        "get_setting",
+        "Read a project or timeline setting. scope = 'project' (default) or "
+        "'timeline'. Omit 'name' to return all settings as a dict.",
+        {
+            "type": "object",
+            "properties": {
+                "scope": {"type": "string", "enum": ["project", "timeline"], "default": "project"},
+                "name": {"type": "string"},
+            },
+        },
+    )
+    def get_setting(resolve, args):
+        scope = args.get("scope", "project")
+        target = _require_project(resolve) if scope == "project" else _require_timeline(resolve)
+        name = args.get("name")
+        value = target.GetSetting(name) if name else target.GetSetting()
+        return {"scope": scope, "name": name, "value": value}
+
+    @tool(
+        "set_setting",
+        "Set a project or timeline setting. scope = 'project' (default) or "
+        "'timeline'. Both name and value are strings.",
+        {
+            "type": "object",
+            "properties": {
+                "scope": {"type": "string", "enum": ["project", "timeline"], "default": "project"},
+                "name": {"type": "string"},
+                "value": {"type": "string"},
+            },
+            "required": ["name", "value"],
+        },
+    )
+    def set_setting(resolve, args):
+        scope = args.get("scope", "project")
+        target = _require_project(resolve) if scope == "project" else _require_timeline(resolve)
+        ok = target.SetSetting(args["name"], str(args["value"]))
+        if not ok:
+            raise ToolError(
+                f"SetSetting failed for {scope} {args['name']!r}="
+                f"{args['value']!r} (unknown key or invalid value)."
+            )
+        return {"ok": True, "scope": scope, "name": args["name"], "value": args["value"]}
+
     return tools
 
 
