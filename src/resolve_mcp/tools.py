@@ -65,6 +65,13 @@ def _find_folder(mp, name):
     raise ToolError(f"Media pool folder {name!r} not found.")
 
 
+def _require_gallery(resolve):
+    gallery = _require_project(resolve).GetGallery()
+    if not gallery:
+        raise ToolError("Gallery is unavailable.")
+    return gallery
+
+
 def _track_items_by_index(resolve, track_type, track_index, item_indices):
     """Return TimelineItems for 1-based item_indices on a track."""
     tl = _require_timeline(resolve)
@@ -1642,9 +1649,8 @@ def _build_tools():
         return {"ok": True}
 
     def _current_still_album(resolve):
-        project = _require_project(resolve)
-        gallery = project.GetGallery()
-        album = gallery.GetCurrentStillAlbum() if gallery else None
+        gallery = _require_gallery(resolve)
+        album = gallery.GetCurrentStillAlbum()
         if not album:
             raise ToolError("No current gallery still album.")
         return album
@@ -2318,8 +2324,7 @@ def _build_tools():
         None,
     )
     def list_gallery_albums(resolve, args):
-        project = _require_project(resolve)
-        gallery = project.GetGallery()
+        gallery = _require_gallery(resolve)
         albums = gallery.GetGalleryStillAlbums() or []
         current = gallery.GetCurrentStillAlbum()
         cur_name = gallery.GetAlbumName(current) if current else None
@@ -2334,8 +2339,7 @@ def _build_tools():
         {"type": "object", "properties": {"name": {"type": "string"}}},
     )
     def create_gallery_album(resolve, args):
-        project = _require_project(resolve)
-        gallery = project.GetGallery()
+        gallery = _require_gallery(resolve)
         album = gallery.CreateGalleryStillAlbum()
         if not album:
             raise ToolError("CreateGalleryStillAlbum failed.")
@@ -2349,8 +2353,7 @@ def _build_tools():
         {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
     )
     def set_current_gallery_album(resolve, args):
-        project = _require_project(resolve)
-        gallery = project.GetGallery()
+        gallery = _require_gallery(resolve)
         for album in gallery.GetGalleryStillAlbums() or []:
             if gallery.GetAlbumName(album) == args["name"]:
                 if not gallery.SetCurrentStillAlbum(album):
