@@ -1739,7 +1739,8 @@ def _build_tools():
 
     @tool(
         "export_render_preset",
-        "Export a render preset (by name) to a file path.",
+        "Export a USER render preset (by name) to a path. Factory presets "
+        "cannot be exported; save one with save_render_preset first.",
         {"type": "object", "properties": {
             "name": {"type": "string"}, "filePath": {"type": "string"}},
          "required": ["name", "filePath"]},

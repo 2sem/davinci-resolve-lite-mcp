@@ -1,6 +1,6 @@
 # Tools reference
 
-133 tools, all exercised live against DaVinci Resolve Lite (or verified on the
+148 tools, all exercised live against DaVinci Resolve Lite (or verified on the
 same code path). Every tool call is logged to the Resolve Console and the
 logfile as a single line:
 `[davinci-mcp] <name> <args> -> ok|error|EXCEPTION (Nms)`.
@@ -23,7 +23,8 @@ logfile as a single line:
 |------|--------------|
 | `list_projects` / `load_project` | Browse and load projects |
 | `get_project_info` | Name, framerate, resolution, timeline count |
-| `save_project` / `create_project` / `close_project` | Project lifecycle |
+| `save_project` / `create_project` / `close_project` / `restore_project` | Project lifecycle |
+| `get_project_presets` / `set_project_preset` | Project presets |
 | `export_project` / `import_project` | Back up / restore a project (.drp) |
 
 ## Timelines
@@ -47,6 +48,7 @@ logfile as a single line:
 | `set_track_enabled` / `set_track_locked` / `set_track_name` | Toggle / lock / rename |
 | `get_track_items` | Clips on a track |
 | `get_timeline_item_timing` | A clip's source extents, offsets, track location, linked items |
+| `get_current_video_item` | The video clip under the playhead |
 
 ## Editing (timeline clips)
 | Tool | What it does |
@@ -75,7 +77,9 @@ logfile as a single line:
 | `add_pool_clip_flag` / `clear_pool_clip_flags` | Source-clip flags |
 | `add_pool_clip_marker` / `delete_pool_clip_marker` | Source-clip markers |
 | `get_selected_clips` / `set_selected_clip` | Pool selection |
-| `link_proxy` / `unlink_proxy` / `replace_clip` | Proxy media & replace |
+| `link_proxy` / `unlink_proxy` / `replace_clip` / `replace_clip_preserve_subclip` | Proxy media & replace |
+| `link_full_resolution_media` / `relink_clips` | Relink full-res / relink by folder |
+| `move_folders` | Move bins into another bin |
 | `export_metadata` | Export clip metadata to CSV |
 | `list_storage_volumes` / `browse_storage` / `add_storage_items_to_pool` | Disk browse + import |
 | `reveal_in_storage` | Reveal a path in Media Storage |
@@ -91,6 +95,8 @@ logfile as a single line:
 | `list_grade_versions` / `add_grade_version` / `load_grade_version` / `delete_grade_version` | Color versions |
 | `list_color_groups` / `add_color_group` / `delete_color_group` | Color groups |
 | `assign_to_color_group` / `remove_from_color_group` | Group membership |
+| `get_color_group_clips` / `rename_color_group` / `get_color_group_node_graph` | Group inspection |
+| `list_powergrade_albums` / `create_powergrade_album` | PowerGrade albums |
 | `export_lut` | Export a LUT from a clip's grade (Color page) |
 | `grab_still` / `grab_all_stills` | Grab stills to the gallery |
 | `get_gallery_stills_count` / `clear_gallery_stills` | Count / clear stills |
@@ -105,6 +111,7 @@ logfile as a single line:
 |------|--------------|
 | `export_current_frame_as_still` | Export the current frame as an image |
 | `get_render_presets` / `save_render_preset` / `delete_render_preset` / `load_render_preset` | Render presets |
+| `import_render_preset` / `export_render_preset` | Render preset file I/O |
 | `get_render_formats` / `set_render_format_codec` | Format + codec |
 | `get_render_mode` / `set_render_mode` | Individual clips vs single clip |
 | `get_render_resolutions` | Valid resolutions for format/codec |
