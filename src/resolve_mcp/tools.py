@@ -1931,7 +1931,9 @@ def _build_tools():
     # ----- Bins / folders -----------------------------------------------
     @tool(
         "add_subfolder",
-        "Create a subfolder under the current media pool folder.",
+        "Create a subfolder under the current media pool folder. NOTE: Resolve "
+        "makes the new folder the current folder, so call set_current_folder if "
+        "you need to add siblings.",
         {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
     )
     def add_subfolder(resolve, args):
