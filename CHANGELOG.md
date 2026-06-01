@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.0
+
+Fills the remaining high-value free/Lite gaps — now **133 tools** (+10).
+
+### Added
+- `add_render_job` — queue a render without starting it (batch queues).
+- `get_timeline_item_timing` — a clip's source extents, left/right offsets, track type/index, linked items.
+- Gallery still I/O: `list_gallery_stills`, `set_gallery_still_label`, `export_gallery_stills`, `import_gallery_stills`, `delete_gallery_stills`.
+- `apply_grade_from_drx` — apply a .drx PowerGrade to a clip's node graph; `get_node_tools` — list a node's operators.
+- `create_timeline_from_clips` — build a timeline from media-pool clips in one call.
+
 ## 0.6.0
 
 Comprehensive coverage of the **free (Lite) API surface** — now **123 tools**
