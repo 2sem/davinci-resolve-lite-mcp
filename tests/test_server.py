@@ -173,7 +173,21 @@ def main():
     r = d.handle({"jsonrpc": "2.0", "id": 7, "method": "frobnicate"})
     check("unknown method -> -32601", r["error"]["code"] == -32601)
 
-    # 6. Bridge fails fast once stopped (no hang on done.wait).
+    # 6. Argument validation (required / enum / type) -> clean isError.
+    print("validation:")
+    r = d.handle({"jsonrpc": "2.0", "id": 8, "method": "tools/call",
+                  "params": {"name": "open_page", "arguments": {}}})
+    check("missing required -> isError",
+          r["result"]["isError"] and "missing required" in r["result"]["content"][0]["text"])
+    r = d.handle({"jsonrpc": "2.0", "id": 9, "method": "tools/call",
+                  "params": {"name": "open_page", "arguments": {"page": "nope"}}})
+    check("bad enum -> isError", r["result"]["isError"] is True)
+    r = d.handle({"jsonrpc": "2.0", "id": 10, "method": "tools/call",
+                  "params": {"name": "set_timecode", "arguments": {"timecode": 5}}})
+    check("wrong type -> isError",
+          r["result"]["isError"] and "must be string" in r["result"]["content"][0]["text"])
+
+    # 7. Bridge fails fast once stopped (no hang on done.wait).
     print("bridge:")
     from resolve_mcp.bridge import ResolveBridge
     b = ResolveBridge("R")

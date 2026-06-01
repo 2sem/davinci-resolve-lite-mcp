@@ -182,9 +182,9 @@ stereo/3D, layout & burn-in presets, mattes) — not functional gaps.
 - Clips are addressed by **name within the current media-pool folder**; if two
   clips share a name, only one is reachable. (A future version may add id-based
   addressing.)
-- Tool arguments are described by JSON Schema but not strictly validated
-  server-side yet — a malformed call surfaces as a generic JSON-RPC error rather
-  than a friendly message.
+- Tool arguments are validated against each tool's JSON Schema (required fields,
+  basic types, and enums); a malformed call returns a clear error naming the
+  offending argument. Deep/nested schema constraints are not exhaustively checked.
 
 ## Security note
 

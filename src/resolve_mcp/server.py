@@ -66,6 +66,43 @@ def log_startup_guide(server_name, version, how, resolve, url, log_path):
         log(line)
 
 
+def _type_ok(value, json_type):
+    if json_type == "integer":
+        return isinstance(value, int) and not isinstance(value, bool)
+    if json_type == "number":
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    if json_type == "boolean":
+        return isinstance(value, bool)
+    py = {"string": str, "array": list, "object": dict}.get(json_type)
+    return isinstance(value, py) if py else True
+
+
+def _validate_args(name, args, schema):
+    """Validate args against the tool's JSON Schema (required / type / enum).
+
+    Raises ToolError with a friendly message on a violation, so a malformed
+    call returns a clean tool error instead of a generic internal error.
+    """
+    props = schema.get("properties", {})
+    for req in schema.get("required", []):
+        if req not in args:
+            raise ToolError(f"{name}: missing required argument {req!r}.")
+    for key, val in args.items():
+        spec = props.get(key)
+        if not spec:
+            continue  # extra args are tolerated
+        types = spec.get("type")
+        if types is not None:
+            allowed = types if isinstance(types, list) else [types]
+            if not any(_type_ok(val, t) for t in allowed):
+                raise ToolError(
+                    f"{name}: argument {key!r} must be {'/'.join(allowed)}, "
+                    f"got {type(val).__name__}."
+                )
+        if "enum" in spec and val not in spec["enum"]:
+            raise ToolError(f"{name}: argument {key!r} must be one of {spec['enum']}.")
+
+
 class MCPDispatcher:
     """Handles MCP JSON-RPC method calls. Stateless."""
 
@@ -141,6 +178,12 @@ class MCPDispatcher:
             log_file(f"[davinci-mcp] {name} {arg_str} -> error: Unknown tool (0ms)")
             raise ToolError(f"Unknown tool: {name}")
         handler = spec["handler"]
+
+        try:
+            _validate_args(name, args, spec["inputSchema"])
+        except ToolError as exc:
+            log_file(f"[davinci-mcp] {name} {arg_str} -> error: {exc} (0ms)")
+            raise
 
         # Log on the main thread (inside the queued job) so Console writes share
         # the same single-thread discipline as the Resolve API calls.
