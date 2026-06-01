@@ -423,6 +423,99 @@ def _build_tools():
             raise ToolError(f"No clip marker matched {target}.")
         return {"ok": True, "item": item.GetName(), **target}
 
+    def _node_graph(resolve, args):
+        item = _track_item(resolve, args)
+        graph = item.GetNodeGraph()
+        if graph is None:
+            raise ToolError("This clip has no node graph.")
+        return item, graph
+
+    @tool(
+        "get_node_graph",
+        "Inspect the color node graph of a timeline clip (by trackType + "
+        "trackIndex + itemIndex). Returns node count and per-node label + LUT.",
+        {
+            "type": "object",
+            "properties": dict(_ITEM_ADDR),
+            "required": ["trackType", "trackIndex", "itemIndex"],
+        },
+    )
+    def get_node_graph(resolve, args):
+        item, graph = _node_graph(resolve, args)
+        n = graph.GetNumNodes()
+        nodes = []
+        for i in range(1, (n or 0) + 1):
+            nodes.append({"index": i, "label": graph.GetNodeLabel(i), "lut": graph.GetLUT(i)})
+        return {"item": item.GetName(), "numNodes": n, "nodes": nodes}
+
+    @tool(
+        "set_node_lut",
+        "Apply a LUT to a color node (1-based nodeIndex) of a timeline clip. "
+        "'lutPath' is relative to the LUT folder or an absolute path.",
+        {
+            "type": "object",
+            "properties": {
+                **_ITEM_ADDR,
+                "nodeIndex": {"type": "integer", "minimum": 1},
+                "lutPath": {"type": "string"},
+            },
+            "required": ["trackType", "trackIndex", "itemIndex", "nodeIndex", "lutPath"],
+        },
+    )
+    def set_node_lut(resolve, args):
+        item, graph = _node_graph(resolve, args)
+        if not graph.SetLUT(args["nodeIndex"], args["lutPath"]):
+            raise ToolError(f"SetLUT(node {args['nodeIndex']}, {args['lutPath']!r}) failed.")
+        return {"ok": True, "item": item.GetName(), "nodeIndex": args["nodeIndex"]}
+
+    @tool(
+        "set_node_enabled",
+        "Enable or disable a color node (1-based nodeIndex) of a timeline clip.",
+        {
+            "type": "object",
+            "properties": {
+                **_ITEM_ADDR,
+                "nodeIndex": {"type": "integer", "minimum": 1},
+                "enabled": {"type": "boolean"},
+            },
+            "required": ["trackType", "trackIndex", "itemIndex", "nodeIndex", "enabled"],
+        },
+    )
+    def set_node_enabled(resolve, args):
+        item, graph = _node_graph(resolve, args)
+        enabled = bool(args["enabled"])
+        if not graph.SetNodeEnabled(args["nodeIndex"], enabled):
+            raise ToolError(f"SetNodeEnabled(node {args['nodeIndex']}, {enabled}) failed.")
+        return {"ok": True, "item": item.GetName(), "nodeIndex": args["nodeIndex"], "enabled": enabled}
+
+    @tool(
+        "reset_grades",
+        "Reset all grades on every node of a timeline clip's node graph.",
+        {
+            "type": "object",
+            "properties": dict(_ITEM_ADDR),
+            "required": ["trackType", "trackIndex", "itemIndex"],
+        },
+    )
+    def reset_grades(resolve, args):
+        item, graph = _node_graph(resolve, args)
+        if not graph.ResetAllGrades():
+            raise ToolError("ResetAllGrades failed.")
+        return {"ok": True, "item": item.GetName()}
+
+    @tool(
+        "grab_still",
+        "Grab a still from the current clip into the gallery (Color page). "
+        "Switch to the Color page first for reliable results.",
+        None,
+    )
+    def grab_still(resolve, args):
+        tl = _require_timeline(resolve)
+        still = tl.GrabStill()
+        if not still:
+            raise ToolError("GrabStill failed (open the Color page and select a clip).")
+        return {"ok": True}
+
     _TRACK_ADDR = {
         "trackType": {"type": "string", "enum": ["video", "audio", "subtitle"]},
         "trackIndex": {"type": "integer", "minimum": 1},
