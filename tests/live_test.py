@@ -298,7 +298,12 @@ def _(): need("markInOut" in call("get_mark_in_out"))
 def _(): need(call("clear_mark_in_out")["ok"])
 
 @test("detect_scene_cuts")
-def _(): raise Skip("Studio-gated on Lite — opens the upgrade dialog")
+def _():
+    goto_scratch()
+    try:
+        call("detect_scene_cuts")  # Studio: runs
+    except AssertionError as e:    # Lite: clean Studio-required gate (no modal)
+        need("Studio" in str(e), f"unexpected error: {e}")
 
 @test("export_timeline")
 def _():

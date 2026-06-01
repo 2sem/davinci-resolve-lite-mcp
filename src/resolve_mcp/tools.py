@@ -11,6 +11,17 @@ class ToolError(Exception):
     """Raised by tools for user-facing failures."""
 
 
+def _require_studio(resolve):
+    """Raise (without touching the gated API) if not running DaVinci Resolve
+    Studio. Calling a Studio-only API on the free edition pops an upgrade dialog
+    that wedges UI automation, so we refuse up front."""
+    if "Studio" not in (resolve.GetProductName() or ""):
+        raise ToolError(
+            "This feature requires DaVinci Resolve Studio (paid). The free "
+            "edition cannot run it."
+        )
+
+
 def _require_project(resolve):
     pm = resolve.GetProjectManager()
     project = pm.GetCurrentProject() if pm else None
@@ -113,8 +124,10 @@ def _build_tools():
         pm = resolve.GetProjectManager()
         project = pm.GetCurrentProject() if pm else None
         timeline = project.GetCurrentTimeline() if project else None
+        product = resolve.GetProductName()
         return {
-            "product": resolve.GetProductName(),
+            "product": product,
+            "studio": "Studio" in (product or ""),
             "version": resolve.GetVersionString(),
             "currentPage": resolve.GetCurrentPage(),
             "project": project.GetName() if project else None,
@@ -1869,6 +1882,7 @@ def _build_tools():
         None,
     )
     def detect_scene_cuts(resolve, args):
+        _require_studio(resolve)  # gated: pops the upgrade dialog on free Lite
         tl = _require_timeline(resolve)
         if not tl.DetectSceneCuts():
             raise ToolError("DetectSceneCuts failed.")
