@@ -516,6 +516,35 @@ def _build_tools():
         return {"ok": True, "frame": args["frame"]}
 
     @tool(
+        "delete_timeline_marker",
+        "Delete timeline marker(s). Give 'frame' to delete the marker at that "
+        "frame, or 'color' to delete all markers of that color ('All' = every "
+        "marker). Provide exactly one of frame/color.",
+        {
+            "type": "object",
+            "properties": {
+                "frame": {"type": "integer"},
+                "color": {"type": "string"},
+            },
+        },
+    )
+    def delete_timeline_marker(resolve, args):
+        tl = _require_timeline(resolve)
+        has_frame = args.get("frame") is not None
+        has_color = bool(args.get("color"))
+        if has_frame == has_color:
+            raise ToolError("Provide exactly one of 'frame' or 'color'.")
+        if has_frame:
+            ok = tl.DeleteMarkerAtFrame(args["frame"])
+            target = {"frame": args["frame"]}
+        else:
+            ok = tl.DeleteMarkersByColor(args["color"])
+            target = {"color": args["color"]}
+        if not ok:
+            raise ToolError(f"No marker matched {target}.")
+        return {"ok": True, **target}
+
+    @tool(
         "list_media_pool",
         "List clips in the current media pool folder (and optionally subfolders).",
         {
@@ -606,6 +635,31 @@ def _build_tools():
         if not tl:
             raise ToolError("CreateEmptyTimeline failed (name may not be unique).")
         return {"created": tl.GetName()}
+
+    @tool(
+        "delete_timeline",
+        "Delete a timeline by name from the current project.",
+        {
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+            "required": ["name"],
+        },
+    )
+    def delete_timeline(resolve, args):
+        project = _require_project(resolve)
+        mp = project.GetMediaPool()
+        name = args["name"]
+        target = None
+        for idx in range(1, project.GetTimelineCount() + 1):
+            tl = project.GetTimelineByIndex(idx)
+            if tl and tl.GetName() == name:
+                target = tl
+                break
+        if not target:
+            raise ToolError(f"No timeline named {name!r}.")
+        if not mp.DeleteTimelines([target]):
+            raise ToolError("DeleteTimelines failed.")
+        return {"ok": True, "deleted": name}
 
     @tool(
         "export_current_frame_as_still",
