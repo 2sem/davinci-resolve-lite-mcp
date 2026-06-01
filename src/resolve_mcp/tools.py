@@ -103,8 +103,9 @@ def _build_tools():
         page = args.get("page")
         if page not in VALID_PAGES:
             raise ToolError(f"page must be one of {VALID_PAGES}")
-        ok = resolve.OpenPage(page)
-        return {"ok": bool(ok), "page": page}
+        if not resolve.OpenPage(page):
+            raise ToolError(f"OpenPage({page!r}) failed.")
+        return {"ok": True, "page": page}
 
     @tool(
         "list_projects",
@@ -539,8 +540,12 @@ def _build_tools():
     )
     def set_timecode(resolve, args):
         tl = _require_timeline(resolve)
-        ok = tl.SetCurrentTimecode(args["timecode"])
-        return {"ok": bool(ok), "timecode": tl.GetCurrentTimecode()}
+        if not tl.SetCurrentTimecode(args["timecode"]):
+            raise ToolError(
+                f"SetCurrentTimecode({args['timecode']!r}) failed "
+                "(bad format or out of timeline range; use HH:MM:SS:FF)."
+            )
+        return {"ok": True, "timecode": tl.GetCurrentTimecode()}
 
     @tool(
         "add_timeline_marker",
@@ -832,6 +837,8 @@ def _build_tools():
         project = _require_project(resolve)
         mp = project.GetMediaPool()
         folder = mp.GetCurrentFolder()
+        if not folder:
+            raise ToolError("No current media pool folder.")
         by_name = {c.GetName(): c for c in (folder.GetClipList() or [])}
         wanted = []
         missing = []
@@ -1050,10 +1057,13 @@ def _build_tools():
     )
     def delete_render_job(resolve, args):
         project = _require_project(resolve)
-        if args.get("jobId"):
-            if not project.DeleteRenderJob(args["jobId"]):
-                raise ToolError(f"DeleteRenderJob({args['jobId']!r}) failed.")
-            return {"ok": True, "deleted": args["jobId"]}
+        job_id = args.get("jobId")
+        if job_id == "":
+            raise ToolError("jobId is empty; omit it entirely to clear the whole queue.")
+        if job_id is not None:
+            if not project.DeleteRenderJob(job_id):
+                raise ToolError(f"DeleteRenderJob({job_id!r}) failed.")
+            return {"ok": True, "deleted": job_id}
         if not project.DeleteAllRenderJobs():
             raise ToolError("DeleteAllRenderJobs failed.")
         return {"ok": True, "deleted": "all"}

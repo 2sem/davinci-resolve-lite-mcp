@@ -58,13 +58,22 @@ def safe_flush():
             pass
 
 
-def log(message=""):
-    """Print to the Resolve Console and append to the logfile (timestamped)."""
-    print(message)
-    safe_flush()
+def log_file(message=""):
+    """Append to the logfile only (no Console write).
+
+    Safe to call from non-main threads, where writing to Resolve's stdout would
+    violate the single-thread discipline the command queue enforces.
+    """
     try:
         with open(LOG_PATH, "a", encoding="utf-8") as handle:
             stamp = time.strftime("%Y-%m-%d %H:%M:%S")
             handle.write(f"{stamp}  {message}\n")
     except OSError:
         pass
+
+
+def log(message=""):
+    """Print to the Resolve Console and append to the logfile (timestamped)."""
+    print(message)
+    safe_flush()
+    log_file(message)

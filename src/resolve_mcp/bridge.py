@@ -16,6 +16,7 @@ class ResolveBridge:
     def __init__(self, resolve):
         self.resolve = resolve
         self._queue = Queue()
+        self._stopped = False
 
     def call(self, func):
         """Run ``func(resolve)`` on the main thread, return its result.
@@ -23,6 +24,10 @@ class ResolveBridge:
         Blocks the calling (HTTP handler) thread until done. Exceptions raised
         by ``func`` are re-raised here.
         """
+        if self._stopped:
+            # Server is shutting down: don't enqueue work that will never run
+            # (the main loop has stopped) — fail fast instead of blocking forever.
+            raise RuntimeError("Server is stopping.")
         done = threading.Event()
         box = {}
 
@@ -41,12 +46,21 @@ class ResolveBridge:
         return box.get("result")
 
     def stop(self):
+        self._stopped = True
         self._queue.put(self._STOP)
 
     def run_forever(self):
-        """Main-thread loop. Returns when stop() is called."""
+        """Main-thread loop. Returns when stop() is called.
+
+        On stop, drain any jobs already queued ahead of (or behind) the STOP
+        sentinel so their callers unblock instead of hanging on done.wait().
+        """
         while True:
             job = self._queue.get()
             if job is self._STOP:
+                while not self._queue.empty():
+                    pending = self._queue.get_nowait()
+                    if pending is not self._STOP:
+                        pending()
                 return
             job()

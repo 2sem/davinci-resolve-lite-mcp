@@ -17,7 +17,7 @@ from .config import (
     SERVER_VERSION,
 )
 from .connection import get_resolve
-from .logio import LOG_PATH, log, safe_flush
+from .logio import LOG_PATH, log, log_file, safe_flush
 from .tools import TOOLS, ToolError
 
 
@@ -136,7 +136,9 @@ class MCPDispatcher:
 
         spec = TOOLS.get(name)
         if not spec:
-            log_call(f"error: Unknown tool: {name}", time.monotonic())
+            # Logged file-only: this runs on the HTTP handler thread (no bridge
+            # job), so we must not write to Resolve's Console from here.
+            log_file(f"[davinci-mcp] {name} {arg_str} -> error: Unknown tool (0ms)")
             raise ToolError(f"Unknown tool: {name}")
         handler = spec["handler"]
 
@@ -215,7 +217,10 @@ def make_handler(dispatcher):
                 dispatcher.bridge.stop()
                 return
 
-            length = int(self.headers.get("Content-Length", 0))
+            try:
+                length = int(self.headers.get("Content-Length", 0) or 0)
+            except (TypeError, ValueError):
+                length = 0
             raw = self.rfile.read(length) if length else b""
             try:
                 message = json.loads(raw.decode("utf-8")) if raw else {}
@@ -299,7 +304,7 @@ def main():
             pass
 
     resolve, how = get_resolve()
-    if not resolve:
+    if resolve is None:
         # Not running inside Resolve (e.g. imported for tests). Stay silent.
         return
 

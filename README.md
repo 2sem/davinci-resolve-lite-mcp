@@ -192,6 +192,15 @@ fallbacks/                       documented gotchas + fixes
 
 Run the offline tests with `python3 tests/test_server.py`.
 
+## Known limitations
+
+- Clips are addressed by **name within the current media-pool folder**; if two
+  clips share a name, only one is reachable. (A future version may add id-based
+  addressing.)
+- Tool arguments are described by JSON Schema but not strictly validated
+  server-side yet — a malformed call surfaces as a generic JSON-RPC error rather
+  than a friendly message.
+
 ## Security note
 
 The server binds to `127.0.0.1` only, so it is reachable from your machine

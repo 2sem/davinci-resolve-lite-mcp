@@ -15,25 +15,25 @@ def get_resolve():
     import __main__  # noqa: WPS433
 
     obj = getattr(__main__, "resolve", None)
-    if obj:
+    if obj is not None:
         return obj, "__main__.resolve"
 
     bmd = getattr(__main__, "bmd", None)
-    if bmd:
+    if bmd is not None:
         try:
             obj = bmd.scriptapp("Resolve")
-            if obj:
+            if obj is not None:
                 return obj, "__main__.bmd.scriptapp(Resolve)"
         except Exception:  # noqa: BLE001
             pass
 
     for global_name in ("app", "fu"):
         host = getattr(__main__, global_name, None)
-        get_resolve_fn = getattr(host, "GetResolve", None) if host else None
+        get_resolve_fn = getattr(host, "GetResolve", None) if host is not None else None
         if callable(get_resolve_fn):
             try:
                 obj = get_resolve_fn()
-                if obj:
+                if obj is not None:
                     return obj, f"__main__.{global_name}.GetResolve()"
             except Exception:  # noqa: BLE001
                 pass
@@ -46,7 +46,7 @@ def get_resolve():
         import DaVinciResolveScript as dvr  # noqa: WPS433
 
         obj = dvr.scriptapp("Resolve")
-        if obj:
+        if obj is not None:
             return obj, "DaVinciResolveScript.scriptapp(Resolve)"
     except Exception:  # noqa: BLE001
         pass
@@ -58,7 +58,7 @@ def get_resolve():
             import DaVinciResolveScript as dvr  # noqa: WPS433
 
             obj = dvr.scriptapp("Resolve")
-            if obj:
+            if obj is not None:
                 return obj, f"DaVinciResolveScript from {path}"
         except Exception:  # noqa: BLE001
             continue

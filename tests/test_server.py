@@ -173,6 +173,17 @@ def main():
     r = d.handle({"jsonrpc": "2.0", "id": 7, "method": "frobnicate"})
     check("unknown method -> -32601", r["error"]["code"] == -32601)
 
+    # 6. Bridge fails fast once stopped (no hang on done.wait).
+    print("bridge:")
+    from resolve_mcp.bridge import ResolveBridge
+    b = ResolveBridge("R")
+    b.stop()
+    try:
+        b.call(lambda r: r)
+        raise AssertionError("call() after stop should raise")
+    except RuntimeError:
+        check("call() after stop raises (no hang)", True)
+
     print("\nALL TESTS PASSED")
 
 
