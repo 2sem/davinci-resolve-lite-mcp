@@ -298,6 +298,35 @@ def _build_tools():
         }
 
     @tool(
+        "get_timeline_item_timing",
+        "Return timing/placement of a timeline clip: timeline start/end/duration, "
+        "left/right offsets (trim headroom), source in/out frames, the clip's "
+        "track type+index, and any linked items. Address by trackType + "
+        "trackIndex + itemIndex (1-based).",
+        {
+            "type": "object",
+            "properties": dict(_ITEM_ADDR),
+            "required": ["trackType", "trackIndex", "itemIndex"],
+        },
+    )
+    def get_timeline_item_timing(resolve, args):
+        item = _track_item(resolve, args)
+        track = item.GetTrackTypeAndIndex() or []
+        return {
+            "item": item.GetName(),
+            "start": item.GetStart(),
+            "end": item.GetEnd(),
+            "duration": item.GetDuration(),
+            "leftOffset": item.GetLeftOffset(),
+            "rightOffset": item.GetRightOffset(),
+            "sourceStartFrame": item.GetSourceStartFrame(),
+            "sourceEndFrame": item.GetSourceEndFrame(),
+            "trackType": track[0] if len(track) > 0 else None,
+            "trackIndex": track[1] if len(track) > 1 else None,
+            "linkedItems": [i.GetName() for i in (item.GetLinkedItems() or [])],
+        }
+
+    @tool(
         "set_timeline_item_property",
         "Set a transform/crop/composite property on a timeline clip. Address it "
         "by trackType + trackIndex + itemIndex (1-based position on the track). "
