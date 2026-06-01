@@ -1340,6 +1340,37 @@ def _build_tools():
         return {"jobId": job_id, "started": bool(started)}
 
     @tool(
+        "add_render_job",
+        "Queue a render job for the current timeline WITHOUT starting it (for "
+        "building a batch queue). Optionally set a preset and output "
+        "directory/filename first. Returns the new job id.",
+        {
+            "type": "object",
+            "properties": {
+                "preset": {"type": "string"},
+                "targetDir": {"type": "string"},
+                "customName": {"type": "string"},
+            },
+        },
+    )
+    def add_render_job(resolve, args):
+        project = _require_project(resolve)
+        _require_timeline(resolve)
+        if args.get("preset") and not project.LoadRenderPreset(args["preset"]):
+            raise ToolError(f"Render preset {args['preset']!r} not found.")
+        settings = {}
+        if args.get("targetDir"):
+            settings["TargetDir"] = os.path.expanduser(args["targetDir"])
+        if args.get("customName"):
+            settings["CustomName"] = args["customName"]
+        if settings and not project.SetRenderSettings(settings):
+            raise ToolError("SetRenderSettings failed.")
+        job_id = project.AddRenderJob()
+        if not job_id:
+            raise ToolError("AddRenderJob failed.")
+        return {"ok": True, "jobId": job_id}
+
+    @tool(
         "get_render_status",
         "Return render-in-progress flag and the render job queue with statuses.",
         None,
