@@ -1750,7 +1750,9 @@ def _build_tools():
     @tool(
         "set_mark_in_out",
         "Set mark in/out on the current timeline, or on a media-pool clip if "
-        "'clip' (name) is given. type = video/audio/all (default all).",
+        "'clip' (name) is given. Frames are 0-based (relative to the timeline "
+        "start / clip start), not absolute timeline frame numbers. "
+        "type = video/audio/all (default all).",
         {"type": "object", "properties": {
             "in": {"type": "integer"}, "out": {"type": "integer"},
             "type": {"type": "string", "enum": ["video", "audio", "all"], "default": "all"},
@@ -2026,7 +2028,8 @@ def _build_tools():
 
     @tool(
         "export_lut",
-        "Export a LUT from a timeline clip's grade. size = "
+        "Export a LUT from a timeline clip's grade. Requires the Color page to "
+        "be open (open_page 'color' first). size = "
         "17ptcube/33ptcube/65ptcube/panasonic (default 33ptcube). 'path' should "
         "include the file name.",
         {"type": "object", "properties": {
