@@ -156,3 +156,14 @@ def _(): err("relink_clips", names=["__no_clip__"], folderPath=TMP)
 @test("export_metadata")
 def _():
     p = os.path.join(TMP, "meta.csv"); call("export_metadata", filePath=p); need(os.path.exists(p))
+
+
+@test("id_addressing")
+def _():
+    # list exposes ids; a clip is addressable by id (not just name)
+    clips = call("list_media_pool")["clips"]
+    with_id = [c for c in clips if c.get("id")]
+    need(with_id, "list_media_pool exposes no clip ids")
+    cid = with_id[0]["id"]
+    r = call("get_clip_properties", id=cid)
+    need(r["name"] == with_id[0]["name"], "id resolved to wrong clip")

@@ -45,10 +45,30 @@ def _track_item(resolve, args):
     return items[iidx - 1]
 
 
-def _pool_clip(resolve, name):
-    """Find a MediaPoolItem by name in the current media pool folder."""
+def _walk_clips(mp):
+    """Yield every MediaPoolItem in the media pool (all folders, depth-first)."""
+    root = mp.GetRootFolder()
+    stack = [root] if root else []
+    while stack:
+        folder = stack.pop()
+        for clip in folder.GetClipList() or []:
+            yield clip
+        stack.extend(folder.GetSubFolderList() or [])
+
+
+def _pool_clip(resolve, name=None, clip_id=None):
+    """Resolve a MediaPoolItem by unique id (searched across all bins) or, if no
+    id is given, by name in the current media pool folder. Provide one of them."""
     project = _require_project(resolve)
-    folder = project.GetMediaPool().GetCurrentFolder()
+    mp = project.GetMediaPool()
+    if clip_id:
+        for clip in _walk_clips(mp):
+            if clip.GetUniqueId() == clip_id:
+                return clip
+        raise ToolError(f"Clip with id {clip_id!r} not found in the media pool.")
+    if not name:
+        raise ToolError("Provide a clip 'name' or 'id'.")
+    folder = mp.GetCurrentFolder()
     if not folder:
         raise ToolError("No current media pool folder.")
     for clip in folder.GetClipList() or []:
