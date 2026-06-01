@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.1
+
+Hardening from a code review of the v0.7.0/v0.8.0 tool delta (no high-severity
+bugs found).
+
+### Changed
+- `relink_clips` and `move_folders` now hard-fail if any requested name is
+  missing (was silent partial success), matching `append_clips_to_timeline`.
+- `create_timeline_from_clips` rejects an empty `names` list.
+
 ## 0.8.0
 
 Completes the medium-value free/Lite gaps — now **148 tools** (+15).
