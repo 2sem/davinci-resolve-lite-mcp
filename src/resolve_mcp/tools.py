@@ -1344,6 +1344,8 @@ def _build_tools():
         if not folder:
             raise ToolError("No current media pool folder.")
         by_name = {c.GetName(): c for c in (folder.GetClipList() or [])}
+        if not args["names"]:
+            raise ToolError("No clip names supplied.")
         clips, missing = [], []
         for n in args["names"]:
             (clips if n in by_name else missing).append(by_name.get(n, n))
@@ -2534,13 +2536,13 @@ def _build_tools():
         if not folder:
             raise ToolError("No current media pool folder.")
         by_name = {c.GetName(): c for c in (folder.GetClipList() or [])}
-        clips = [by_name[n] for n in args["names"] if n in by_name]
         missing = [n for n in args["names"] if n not in by_name]
-        if not clips:
-            raise ToolError(f"No matching clips: {missing}")
+        if missing:
+            raise ToolError(f"Clips not found in current folder: {missing}")
+        clips = [by_name[n] for n in args["names"]]
         if not mp.RelinkClips(clips, os.path.expanduser(args["folderPath"])):
             raise ToolError("RelinkClips failed.")
-        return {"ok": True, "relinked": len(clips), "missing": missing}
+        return {"ok": True, "relinked": len(clips)}
 
     @tool(
         "move_folders",
@@ -2558,14 +2560,14 @@ def _build_tools():
         if not parent:
             raise ToolError("No current media pool folder.")
         by_name = {f.GetName(): f for f in (parent.GetSubFolderList() or [])}
-        folders = [by_name[n] for n in args["names"] if n in by_name]
         missing = [n for n in args["names"] if n not in by_name]
-        if not folders:
-            raise ToolError(f"No matching subfolders: {missing}")
+        if missing:
+            raise ToolError(f"Subfolders not found: {missing}")
+        folders = [by_name[n] for n in args["names"]]
         target = _find_folder(mp, args["targetFolder"])
         if not mp.MoveFolders(folders, target):
             raise ToolError("MoveFolders failed.")
-        return {"ok": True, "moved": len(folders), "missing": missing, "to": target.GetName()}
+        return {"ok": True, "moved": len(folders), "to": target.GetName()}
 
     @tool(
         "get_selected_clips",
