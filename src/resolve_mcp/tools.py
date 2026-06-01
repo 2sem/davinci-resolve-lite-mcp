@@ -1736,6 +1736,108 @@ def _build_tools():
             raise ToolError("DeleteStills failed.")
         return {"ok": True, "deleted": len(stills)}
 
+    def _stills_by_index(album, indices):
+        stills = album.GetStills() or []
+        chosen = []
+        for i in indices:
+            if i < 1 or i > len(stills):
+                raise ToolError(f"No still #{i} (album has {len(stills)}).")
+            chosen.append(stills[i - 1])
+        return chosen
+
+    @tool(
+        "list_gallery_stills",
+        "List stills in the current gallery album, with their 1-based index and "
+        "label.",
+        None,
+    )
+    def list_gallery_stills(resolve, args):
+        album = _current_still_album(resolve)
+        stills = album.GetStills() or []
+        return {
+            "count": len(stills),
+            "stills": [{"index": i + 1, "label": album.GetLabel(s)} for i, s in enumerate(stills)],
+        }
+
+    @tool(
+        "set_gallery_still_label",
+        "Set the label of a still (1-based index) in the current gallery album.",
+        {
+            "type": "object",
+            "properties": {"index": {"type": "integer", "minimum": 1}, "label": {"type": "string"}},
+            "required": ["index", "label"],
+        },
+    )
+    def set_gallery_still_label(resolve, args):
+        album = _current_still_album(resolve)
+        still = _stills_by_index(album, [args["index"]])[0]
+        if not album.SetLabel(still, args["label"]):
+            raise ToolError("SetLabel failed.")
+        return {"ok": True, "index": args["index"], "label": args["label"]}
+
+    @tool(
+        "export_gallery_stills",
+        "Export stills from the current gallery album to a folder. format = one "
+        "of dpx/cin/tif/jpg/png/ppm/bmp/xpm/drx. Omit 'indices' to export all.",
+        {
+            "type": "object",
+            "properties": {
+                "folderPath": {"type": "string"},
+                "filePrefix": {"type": "string", "default": "still"},
+                "format": {"type": "string", "default": "jpg"},
+                "indices": {"type": "array", "items": {"type": "integer", "minimum": 1}},
+            },
+            "required": ["folderPath"],
+        },
+    )
+    def export_gallery_stills(resolve, args):
+        album = _current_still_album(resolve)
+        all_stills = album.GetStills() or []
+        stills = _stills_by_index(album, args["indices"]) if args.get("indices") else all_stills
+        if not stills:
+            raise ToolError("No stills to export.")
+        folder = os.path.expanduser(args["folderPath"])
+        try:
+            os.makedirs(folder, exist_ok=True)
+        except OSError as exc:
+            raise ToolError(f"Could not create directory {folder!r}: {exc}")
+        if not album.ExportStills(stills, folder, args.get("filePrefix", "still"), args.get("format", "jpg")):
+            raise ToolError("ExportStills failed.")
+        return {"ok": True, "exported": len(stills), "folder": folder}
+
+    @tool(
+        "import_gallery_stills",
+        "Import still image files into the current gallery album.",
+        {
+            "type": "object",
+            "properties": {"paths": {"type": "array", "items": {"type": "string"}}},
+            "required": ["paths"],
+        },
+    )
+    def import_gallery_stills(resolve, args):
+        album = _current_still_album(resolve)
+        paths = [os.path.expanduser(p) for p in args["paths"]]
+        if not album.ImportStills(paths):
+            raise ToolError("ImportStills failed (no still imported).")
+        return {"ok": True, "imported": len(paths)}
+
+    @tool(
+        "delete_gallery_stills",
+        "Delete specific stills (1-based indices) from the current gallery album. "
+        "Use clear_gallery_stills to delete all.",
+        {
+            "type": "object",
+            "properties": {"indices": {"type": "array", "items": {"type": "integer", "minimum": 1}}},
+            "required": ["indices"],
+        },
+    )
+    def delete_gallery_stills(resolve, args):
+        album = _current_still_album(resolve)
+        stills = _stills_by_index(album, args["indices"])
+        if not album.DeleteStills(stills):
+            raise ToolError("DeleteStills failed.")
+        return {"ok": True, "deleted": len(stills)}
+
     # ----- Bins / folders -----------------------------------------------
     @tool(
         "add_subfolder",
