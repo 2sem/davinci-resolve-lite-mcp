@@ -2287,6 +2287,74 @@ def _build_tools():
         return {"ok": True, "item": item.GetName()}
 
     @tool(
+        "get_color_group_clips",
+        "List the timeline clips that belong to a color group (by group name).",
+        {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+    )
+    def get_color_group_clips(resolve, args):
+        project = _require_project(resolve)
+        group = _color_group(project, args["name"])
+        items = group.GetClipsInTimeline() or []
+        return {"group": args["name"], "clips": [i.GetName() for i in items]}
+
+    @tool(
+        "rename_color_group",
+        "Rename a color group.",
+        {"type": "object", "properties": {"name": {"type": "string"}, "newName": {"type": "string"}},
+         "required": ["name", "newName"]},
+    )
+    def rename_color_group(resolve, args):
+        project = _require_project(resolve)
+        group = _color_group(project, args["name"])
+        if not group.SetName(args["newName"]):
+            raise ToolError("SetName failed.")
+        return {"ok": True, "name": args["newName"]}
+
+    @tool(
+        "get_color_group_node_graph",
+        "Inspect a color group's shared grade graph. which = 'pre' (pre-clip) or "
+        "'post' (post-clip). Returns node count + per-node label/LUT.",
+        {"type": "object", "properties": {
+            "name": {"type": "string"},
+            "which": {"type": "string", "enum": ["pre", "post"], "default": "pre"}},
+         "required": ["name"]},
+    )
+    def get_color_group_node_graph(resolve, args):
+        project = _require_project(resolve)
+        group = _color_group(project, args["name"])
+        graph = group.GetPreClipNodeGraph() if args.get("which", "pre") == "pre" else group.GetPostClipNodeGraph()
+        if graph is None:
+            raise ToolError("Group node graph unavailable.")
+        n = graph.GetNumNodes()
+        nodes = [{"index": i, "label": graph.GetNodeLabel(i), "lut": graph.GetLUT(i)}
+                 for i in range(1, (n or 0) + 1)]
+        return {"group": args["name"], "which": args.get("which", "pre"), "numNodes": n, "nodes": nodes}
+
+    @tool(
+        "list_powergrade_albums",
+        "List PowerGrade albums in the gallery.",
+        None,
+    )
+    def list_powergrade_albums(resolve, args):
+        gallery = _require_gallery(resolve)
+        albums = gallery.GetGalleryPowerGradeAlbums() or []
+        return {"albums": [gallery.GetAlbumName(a) for a in albums]}
+
+    @tool(
+        "create_powergrade_album",
+        "Create a new PowerGrade album. Optional 'name' to label it.",
+        {"type": "object", "properties": {"name": {"type": "string"}}},
+    )
+    def create_powergrade_album(resolve, args):
+        gallery = _require_gallery(resolve)
+        album = gallery.CreateGalleryPowerGradeAlbum()
+        if not album:
+            raise ToolError("CreateGalleryPowerGradeAlbum failed.")
+        if args.get("name"):
+            gallery.SetAlbumName(album, args["name"])
+        return {"ok": True, "album": gallery.GetAlbumName(album)}
+
+    @tool(
         "export_lut",
         "Export a LUT from a timeline clip's grade. Requires the Color page to "
         "be open (open_page 'color' first). size = "
