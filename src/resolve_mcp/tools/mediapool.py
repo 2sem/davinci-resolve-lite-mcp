@@ -26,6 +26,7 @@ def list_media_pool(resolve, args):
     def clip_info(clip):
         return {
             "name": clip.GetName(),
+            "id": clip.GetUniqueId(),
             "type": clip.GetClipProperty("Type"),
             "duration": clip.GetClipProperty("Duration"),
         }
@@ -92,16 +93,17 @@ def delete_clip(resolve, args):
         "type": "object",
         "properties": {
             "name": {"type": "string"},
+            "id": {"type": "string"},
             "property": {"type": "string"},
         },
-        "required": ["name"],
+        "required": [],
     },
 )
 def get_clip_properties(resolve, args):
-    clip = _pool_clip(resolve, args["name"])
+    clip = _pool_clip(resolve, args.get("name"), args.get("id"))
     prop = args.get("property")
     value = clip.GetClipProperty(prop) if prop else clip.GetClipProperty()
-    return {"name": clip.GetName(), "property": prop, "value": value}
+    return {"name": clip.GetName(), "id": clip.GetUniqueId(), "property": prop, "value": value}
 
 
 @register(
@@ -111,14 +113,15 @@ def get_clip_properties(resolve, args):
         "type": "object",
         "properties": {
             "name": {"type": "string"},
+            "id": {"type": "string"},
             "property": {"type": "string"},
             "value": {"type": ["string", "number", "boolean"]},
         },
-        "required": ["name", "property", "value"],
+        "required": ["property", "value"],
     },
 )
 def set_clip_property(resolve, args):
-    clip = _pool_clip(resolve, args["name"])
+    clip = _pool_clip(resolve, args.get("name"), args.get("id"))
     if not clip.SetClipProperty(args["property"], str(args["value"])):
         raise ToolError(
             f"SetClipProperty({args['property']!r}) failed (unknown/read-only)."
@@ -134,13 +137,14 @@ def set_clip_property(resolve, args):
         "type": "object",
         "properties": {
             "name": {"type": "string"},
+            "id": {"type": "string"},
             "key": {"type": "string"},
         },
-        "required": ["name"],
+        "required": [],
     },
 )
 def get_clip_metadata(resolve, args):
-    clip = _pool_clip(resolve, args["name"])
+    clip = _pool_clip(resolve, args.get("name"), args.get("id"))
     key = args.get("key")
     value = clip.GetMetadata(key) if key else clip.GetMetadata()
     return {"name": clip.GetName(), "key": key, "value": value}
@@ -153,14 +157,15 @@ def get_clip_metadata(resolve, args):
         "type": "object",
         "properties": {
             "name": {"type": "string"},
+            "id": {"type": "string"},
             "key": {"type": "string"},
             "value": {"type": "string"},
         },
-        "required": ["name", "key", "value"],
+        "required": ["key", "value"],
     },
 )
 def set_clip_metadata(resolve, args):
-    clip = _pool_clip(resolve, args["name"])
+    clip = _pool_clip(resolve, args.get("name"), args.get("id"))
     if not clip.SetMetadata(args["key"], str(args["value"])):
         raise ToolError(f"SetMetadata({args['key']!r}) failed.")
     return {"ok": True, "name": clip.GetName(), "key": args["key"], "value": args["value"]}
@@ -173,13 +178,14 @@ def set_clip_metadata(resolve, args):
         "type": "object",
         "properties": {
             "name": {"type": "string"},
+            "id": {"type": "string"},
             "newName": {"type": "string"},
         },
-        "required": ["name", "newName"],
+        "required": ["newName"],
     },
 )
 def rename_clip(resolve, args):
-    clip = _pool_clip(resolve, args["name"])
+    clip = _pool_clip(resolve, args.get("name"), args.get("id"))
     if not clip.SetName(args["newName"]):
         raise ToolError("SetName failed.")
     return {"ok": True, "name": clip.GetName()}
@@ -190,14 +196,15 @@ def rename_clip(resolve, args):
     "Return a media-pool clip's color label, flags and markers (by name).",
     {
         "type": "object",
-        "properties": {"name": {"type": "string"}},
-        "required": ["name"],
+        "properties": {"name": {"type": "string"}, "id": {"type": "string"}},
+        "required": [],
     },
 )
 def get_pool_clip_tags(resolve, args):
-    clip = _pool_clip(resolve, args["name"])
+    clip = _pool_clip(resolve, args.get("name"), args.get("id"))
     return {
         "name": clip.GetName(),
+        "id": clip.GetUniqueId(),
         "clipColor": clip.GetClipColor(),
         "flags": clip.GetFlagList() or [],
         "markers": clip.GetMarkers() or {},
@@ -209,12 +216,12 @@ def get_pool_clip_tags(resolve, args):
     "Set a media-pool clip's color label (by name). Empty 'color' clears it.",
     {
         "type": "object",
-        "properties": {"name": {"type": "string"}, "color": {"type": "string"}},
-        "required": ["name", "color"],
+        "properties": {"name": {"type": "string"}, "id": {"type": "string"}, "color": {"type": "string"}},
+        "required": ["color"],
     },
 )
 def set_pool_clip_color(resolve, args):
-    clip = _pool_clip(resolve, args["name"])
+    clip = _pool_clip(resolve, args.get("name"), args.get("id"))
     ok = clip.ClearClipColor() if args["color"] == "" else clip.SetClipColor(args["color"])
     if not ok:
         raise ToolError(f"Setting clip color to {args['color']!r} failed.")
@@ -226,12 +233,12 @@ def set_pool_clip_color(resolve, args):
     "Add a colored flag to a media-pool clip (by name).",
     {
         "type": "object",
-        "properties": {"name": {"type": "string"}, "color": {"type": "string"}},
-        "required": ["name", "color"],
+        "properties": {"name": {"type": "string"}, "id": {"type": "string"}, "color": {"type": "string"}},
+        "required": ["color"],
     },
 )
 def add_pool_clip_flag(resolve, args):
-    clip = _pool_clip(resolve, args["name"])
+    clip = _pool_clip(resolve, args.get("name"), args.get("id"))
     if not clip.AddFlag(args["color"]):
         raise ToolError(f"AddFlag({args['color']!r}) failed.")
     return {"ok": True, "name": clip.GetName(), "flags": clip.GetFlagList() or []}
@@ -242,12 +249,12 @@ def add_pool_clip_flag(resolve, args):
     "Clear flags from a media-pool clip (by name). 'color' defaults to 'All'.",
     {
         "type": "object",
-        "properties": {"name": {"type": "string"}, "color": {"type": "string", "default": "All"}},
-        "required": ["name"],
+        "properties": {"name": {"type": "string"}, "id": {"type": "string"}, "color": {"type": "string", "default": "All"}},
+        "required": [],
     },
 )
 def clear_pool_clip_flags(resolve, args):
-    clip = _pool_clip(resolve, args["name"])
+    clip = _pool_clip(resolve, args.get("name"), args.get("id"))
     if not clip.ClearFlags(args.get("color", "All")):
         raise ToolError("ClearFlags failed (no matching flag?).")
     return {"ok": True, "name": clip.GetName(), "flags": clip.GetFlagList() or []}
@@ -260,17 +267,18 @@ def clear_pool_clip_flags(resolve, args):
         "type": "object",
         "properties": {
             "name": {"type": "string"},
+            "id": {"type": "string"},
             "frame": {"type": "integer"},
             "color": {"type": "string", "default": "Blue"},
             "markerName": {"type": "string", "default": ""},
             "note": {"type": "string", "default": ""},
             "duration": {"type": "integer", "default": 1},
         },
-        "required": ["name", "frame"],
+        "required": ["frame"],
     },
 )
 def add_pool_clip_marker(resolve, args):
-    clip = _pool_clip(resolve, args["name"])
+    clip = _pool_clip(resolve, args.get("name"), args.get("id"))
     ok = clip.AddMarker(
         args["frame"],
         args.get("color", "Blue"),
@@ -292,14 +300,15 @@ def add_pool_clip_marker(resolve, args):
         "type": "object",
         "properties": {
             "name": {"type": "string"},
+            "id": {"type": "string"},
             "frame": {"type": "integer"},
             "color": {"type": "string"},
         },
-        "required": ["name"],
+        "required": [],
     },
 )
 def delete_pool_clip_marker(resolve, args):
-    clip = _pool_clip(resolve, args["name"])
+    clip = _pool_clip(resolve, args.get("name"), args.get("id"))
     has_frame = args.get("frame") is not None
     has_color = bool(args.get("color"))
     if has_frame == has_color:
@@ -399,11 +408,11 @@ def move_clips_to_folder(resolve, args):
 @register(
     "link_proxy",
     "Link a proxy media file to a media-pool clip (by name).",
-    {"type": "object", "properties": {"name": {"type": "string"}, "proxyPath": {"type": "string"}},
-     "required": ["name", "proxyPath"]},
+    {"type": "object", "properties": {"name": {"type": "string"}, "id": {"type": "string"}, "proxyPath": {"type": "string"}},
+     "required": ["proxyPath"]},
 )
 def link_proxy(resolve, args):
-    clip = _pool_clip(resolve, args["name"])
+    clip = _pool_clip(resolve, args.get("name"), args.get("id"))
     if not clip.LinkProxyMedia(os.path.expanduser(args["proxyPath"])):
         raise ToolError("LinkProxyMedia failed.")
     return {"ok": True, "name": clip.GetName()}
@@ -412,10 +421,10 @@ def link_proxy(resolve, args):
 @register(
     "unlink_proxy",
     "Unlink proxy media from a media-pool clip (by name).",
-    {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+    {"type": "object", "properties": {"name": {"type": "string"}, "id": {"type": "string"}}, "required": []},
 )
 def unlink_proxy(resolve, args):
-    clip = _pool_clip(resolve, args["name"])
+    clip = _pool_clip(resolve, args.get("name"), args.get("id"))
     if not clip.UnlinkProxyMedia():
         raise ToolError("UnlinkProxyMedia failed.")
     return {"ok": True, "name": clip.GetName()}
@@ -424,11 +433,11 @@ def unlink_proxy(resolve, args):
 @register(
     "replace_clip",
     "Replace a media-pool clip's underlying media with another file (by name).",
-    {"type": "object", "properties": {"name": {"type": "string"}, "filePath": {"type": "string"}},
-     "required": ["name", "filePath"]},
+    {"type": "object", "properties": {"name": {"type": "string"}, "id": {"type": "string"}, "filePath": {"type": "string"}},
+     "required": ["filePath"]},
 )
 def replace_clip(resolve, args):
-    clip = _pool_clip(resolve, args["name"])
+    clip = _pool_clip(resolve, args.get("name"), args.get("id"))
     if not clip.ReplaceClip(os.path.expanduser(args["filePath"])):
         raise ToolError("ReplaceClip failed.")
     return {"ok": True, "name": clip.GetName()}
@@ -438,11 +447,11 @@ def replace_clip(resolve, args):
     "replace_clip_preserve_subclip",
     "Replace a media-pool clip's media (by name) while preserving its subclip "
     "extents.",
-    {"type": "object", "properties": {"name": {"type": "string"}, "filePath": {"type": "string"}},
-     "required": ["name", "filePath"]},
+    {"type": "object", "properties": {"name": {"type": "string"}, "id": {"type": "string"}, "filePath": {"type": "string"}},
+     "required": ["filePath"]},
 )
 def replace_clip_preserve_subclip(resolve, args):
-    clip = _pool_clip(resolve, args["name"])
+    clip = _pool_clip(resolve, args.get("name"), args.get("id"))
     if not clip.ReplaceClipPreserveSubClip(os.path.expanduser(args["filePath"])):
         raise ToolError("ReplaceClipPreserveSubClip failed.")
     return {"ok": True, "name": clip.GetName()}
@@ -451,11 +460,11 @@ def replace_clip_preserve_subclip(resolve, args):
 @register(
     "link_full_resolution_media",
     "Relink a media-pool clip (by name) to full-resolution media at a path.",
-    {"type": "object", "properties": {"name": {"type": "string"}, "filePath": {"type": "string"}},
-     "required": ["name", "filePath"]},
+    {"type": "object", "properties": {"name": {"type": "string"}, "id": {"type": "string"}, "filePath": {"type": "string"}},
+     "required": ["filePath"]},
 )
 def link_full_resolution_media(resolve, args):
-    clip = _pool_clip(resolve, args["name"])
+    clip = _pool_clip(resolve, args.get("name"), args.get("id"))
     if not clip.LinkFullResolutionMedia(os.path.expanduser(args["filePath"])):
         raise ToolError("LinkFullResolutionMedia failed.")
     return {"ok": True, "name": clip.GetName()}
@@ -520,17 +529,17 @@ def move_folders(resolve, args):
 def get_selected_clips(resolve, args):
     project = _require_project(resolve)
     clips = project.GetMediaPool().GetSelectedClips() or []
-    return {"selected": [c.GetName() for c in clips]}
+    return {"selected": [{"name": c.GetName(), "id": c.GetUniqueId()} for c in clips]}
 
 
 @register(
     "set_selected_clip",
     "Select a media-pool clip (by name) in the current folder.",
-    {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+    {"type": "object", "properties": {"name": {"type": "string"}, "id": {"type": "string"}}, "required": []},
 )
 def set_selected_clip(resolve, args):
     project = _require_project(resolve)
-    clip = _pool_clip(resolve, args["name"])
+    clip = _pool_clip(resolve, args.get("name"), args.get("id"))
     if not project.GetMediaPool().SetSelectedClip(clip):
         raise ToolError("SetSelectedClip failed.")
     return {"ok": True, "name": clip.GetName()}
