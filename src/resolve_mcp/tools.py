@@ -1238,6 +1238,77 @@ def _build_tools():
         return {"ok": True, "filePath": path}
 
     @tool(
+        "import_timeline",
+        "Create a timeline by importing a file (AAF/EDL/XML/FCPXML/DRT/OTIO). "
+        "Optional 'timelineName' sets the new timeline's name.",
+        {
+            "type": "object",
+            "properties": {
+                "filePath": {"type": "string"},
+                "timelineName": {"type": "string"},
+            },
+            "required": ["filePath"],
+        },
+    )
+    def import_timeline(resolve, args):
+        project = _require_project(resolve)
+        mp = project.GetMediaPool()
+        path = os.path.expanduser(args["filePath"])
+        if not os.path.exists(path):
+            raise ToolError(f"File not found: {path}")
+        options = {"timelineName": args["timelineName"]} if args.get("timelineName") else {}
+        tl = mp.ImportTimelineFromFile(path, options) if options else mp.ImportTimelineFromFile(path)
+        if not tl:
+            raise ToolError("ImportTimelineFromFile failed.")
+        return {"ok": True, "created": tl.GetName()}
+
+    @tool(
+        "export_project",
+        "Export (back up) the current project to a .drp file at the given path.",
+        {
+            "type": "object",
+            "properties": {"filePath": {"type": "string"}},
+            "required": ["filePath"],
+        },
+    )
+    def export_project(resolve, args):
+        pm = resolve.GetProjectManager()
+        project = _require_project(resolve)
+        path = os.path.expanduser(args["filePath"])
+        directory = os.path.dirname(path)
+        if directory:
+            try:
+                os.makedirs(directory, exist_ok=True)
+            except OSError as exc:
+                raise ToolError(f"Could not create directory {directory!r}: {exc}")
+        if not pm.ExportProject(project.GetName(), path):
+            raise ToolError("ExportProject failed.")
+        return {"ok": True, "filePath": path, "project": project.GetName()}
+
+    @tool(
+        "import_project",
+        "Import a project from a .drp file. Optional 'name' for the imported "
+        "project.",
+        {
+            "type": "object",
+            "properties": {
+                "filePath": {"type": "string"},
+                "name": {"type": "string"},
+            },
+            "required": ["filePath"],
+        },
+    )
+    def import_project(resolve, args):
+        pm = resolve.GetProjectManager()
+        path = os.path.expanduser(args["filePath"])
+        if not os.path.exists(path):
+            raise ToolError(f"File not found: {path}")
+        ok = pm.ImportProject(path, args["name"]) if args.get("name") else pm.ImportProject(path)
+        if not ok:
+            raise ToolError("ImportProject failed.")
+        return {"ok": True, "filePath": path}
+
+    @tool(
         "get_setting",
         "Read a project or timeline setting. scope = 'project' (default) or "
         "'timeline'. Omit 'name' to return all settings as a dict.",
