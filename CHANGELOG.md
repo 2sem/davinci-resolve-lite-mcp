@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.0
+
+Adds import / backup symmetry (now **67 tools**).
+
+### Added
+- `import_timeline` — create a timeline from an AAF/EDL/XML/FCPXML/DRT/OTIO file
+  (`MediaPool.ImportTimelineFromFile`).
+- `export_project` / `import_project` — back up / restore a project as a `.drp`
+  (`ProjectManager.ExportProject` / `ImportProject`).
+
+### Notes
+- For DRT import the new timeline takes the file's own name (`timelineName` is
+  ignored by Resolve for DRT).
+
 ## 0.2.0
 
 Grows the tool surface from 24 → **64 tools** and hardens the server.
