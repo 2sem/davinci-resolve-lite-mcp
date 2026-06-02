@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.12.0
+
+### Added
+- id-based addressing for multi-clip tools: `delete_clip`,
+  `append_clips_to_timeline`, `create_timeline_from_clips`,
+  `move_clips_to_folder`, `relink_clips` now accept `ids` (resolvable across any
+  bin) and/or `names` (current folder), via a shared `_resolve_clips` helper.
+  Completes id-based clip addressing (single + multi).
+
 ## 0.11.0
 
 ### Added
