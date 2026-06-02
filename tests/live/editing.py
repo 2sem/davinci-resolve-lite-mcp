@@ -69,6 +69,16 @@ def _():
     need(r["text"] == "GameHelper"); need(r["text_nodes_set"] >= 1)
     _delete_last_video_item()
 
+@test("set_fusion_title_text")
+def _():
+    goto_scratch()
+    call("insert_fusion_title", title="Text+")
+    n = len(call("get_track_items", trackType="video", index=1)["items"])
+    r = call("set_fusion_title_text", trackType="video", trackIndex=1,
+             itemIndex=n, text="GameHelper")
+    need(r["text"] == "GameHelper"); need(r["text_nodes_set"] >= 1)
+    call("delete_timeline_item", trackType="video", trackIndex=1, itemIndex=n)
+
 @test("insert_generator")
 def _():
     goto_scratch()

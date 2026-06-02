@@ -323,6 +323,53 @@ def insert_fusion_title(resolve, args):
 
 
 @register(
+    "set_fusion_title_text",
+    "Set the on-screen text of an EXISTING Fusion title already on the "
+    "timeline (e.g. one added by insert_fusion_title). Address the clip by "
+    "trackType + trackIndex + itemIndex (1-based). Writes 'text' to the "
+    "'StyledText' input of every Text+ (TextPlus) node in the clip's Fusion "
+    "composition. MCP-original tool: no single Resolve API equivalent (it "
+    "composes GetFusionCompByIndex + GetToolList + SetInput). Only works on "
+    "Fusion titles; basic titles and non-Fusion clips have no composition.",
+    {
+        "type": "object",
+        "properties": {
+            **_ITEM_ADDR,
+            "text": {
+                "type": "string",
+                "description": "On-screen text to write into the title's Text+ node(s).",
+            },
+        },
+        "required": ["trackType", "trackIndex", "itemIndex", "text"],
+    },
+)
+def set_fusion_title_text(resolve, args):
+    item = _track_item(resolve, args)
+    if item.GetFusionCompCount() < 1:
+        raise ToolError(
+            f"{item.GetName()!r} has no Fusion composition "
+            "(not a Fusion title; basic titles cannot have their text set)."
+        )
+    comp = item.GetFusionCompByIndex(1)
+    tools = comp.GetToolList(False, "TextPlus") or {}
+    set_count = 0
+    for tool in tools.values():
+        tool.SetInput("StyledText", args["text"])
+        set_count += 1
+    if set_count == 0:
+        raise ToolError(
+            f"{item.GetName()!r} has a Fusion comp but no Text+ (TextPlus) node "
+            "(text may live in a macro/published input); text not applied."
+        )
+    return {
+        "ok": True,
+        "item": item.GetName(),
+        "text": args["text"],
+        "text_nodes_set": set_count,
+    }
+
+
+@register(
     "insert_generator",
     "Insert a generator (e.g. 'Solid Color') into the timeline at the "
     "playhead.",

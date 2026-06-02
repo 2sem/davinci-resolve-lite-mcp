@@ -1,6 +1,6 @@
 # Tools reference
 
-149 tools, all exercised live against DaVinci Resolve Lite (or verified on the
+150 tools, all exercised live against DaVinci Resolve Lite (or verified on the
 same code path). Every tool call is logged to the Resolve Console and the
 logfile as a single line:
 `[davinci-mcp] <name> <args> -> ok|error|EXCEPTION (Nms)`.
@@ -57,7 +57,8 @@ logfile as a single line:
 | `add_clip_to_timeline` | Place a clip with source in/out, target track, record frame |
 | `append_clips_to_timeline` | Append whole clips |
 | `delete_timeline_item` | Delete a clip (optional ripple) |
-| `insert_title` / `insert_fusion_title` / `insert_generator` | Insert title/generator at playhead |
+| `insert_title` / `insert_fusion_title` / `insert_generator` | Insert title/generator at playhead (`insert_fusion_title` takes optional `text`) |
+| `set_fusion_title_text` | Set on-screen text of an existing Fusion title (StyledText) |
 | `create_compound_clip` / `create_fusion_clip` | Group items into a compound / Fusion clip |
 | `insert_audio_at_playhead` | Insert audio on the current Fairlight track |
 | `get_timeline_item_property` / `set_timeline_item_property` | Transform/crop/zoom/pan/opacity etc. |
@@ -119,3 +120,20 @@ logfile as a single line:
 | `add_render_job` / `render_current_timeline` / `get_render_status` | Queue (no start) / queue + start / progress |
 | `stop_rendering` / `delete_render_job` | Stop / remove jobs |
 | `get_quick_export_presets` / `quick_export` | Quick Export |
+
+## MCP-original tools
+
+Most tools map 1:1 onto a single Resolve scripting method (renamed to
+snake_case — e.g. `insert_fusion_title` → `InsertFusionTitleIntoTimeline`,
+`get_track_items` → `GetItemListInTrack`). The tools below have **no single
+Resolve API equivalent**: they compose several Resolve calls into one
+operation. The MCP tool name is original, not a Resolve method name.
+
+| Tool | Composed Resolve calls |
+|------|------------------------|
+| `set_fusion_title_text` | `GetItemListInTrack` → `GetFusionCompByIndex` → `GetToolList("TextPlus")` → `SetInput("StyledText", …)` |
+| `insert_fusion_title` (with `text`) | `InsertFusionTitleIntoTimeline` → `GetFusionCompByIndex` → `GetToolList` → `SetInput` |
+
+> Basic `Text` titles cannot have their text set at all — they carry no Fusion
+> composition, and Resolve exposes no text property for them. Use a Fusion
+> title (`Text+`, "Background Reveal", …) when you need custom text.
