@@ -169,6 +169,11 @@ fallbacks/                       documented gotchas + fixes
   with a reason. A few marker / still tests depend on a clean Resolve session
   state — re-run them after a fresh launch if they flake.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to add a tool, run the suites,
+the stdlib-only / Lite-first constraints, and the release flow.
+
 ## Scope
 
 This server targets the **free (Lite) edition** and intentionally covers only
@@ -181,9 +186,9 @@ stereo/3D, layout & burn-in presets, mattes) — not functional gaps.
 
 ## Known limitations
 
-- Clips are addressed by **name within the current media-pool folder**; if two
-  clips share a name, only one is reachable. (A future version may add id-based
-  addressing.)
+- Clips can be addressed by **name** (within the current media-pool folder) or
+  by **id** (`id`/`ids`, resolvable across any bin) — pass `id`/`ids` when names
+  are ambiguous or the clip lives in another folder.
 - Tool arguments are validated against each tool's JSON Schema (required fields,
   basic types, and enums); a malformed call returns a clear error naming the
   offending argument. Deep/nested schema constraints are not exhaustively checked.
