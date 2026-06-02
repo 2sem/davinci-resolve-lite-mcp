@@ -1,6 +1,6 @@
 # Tools reference
 
-148 tools, all exercised live against DaVinci Resolve Lite (or verified on the
+149 tools, all exercised live against DaVinci Resolve Lite (or verified on the
 same code path). Every tool call is logged to the Resolve Console and the
 logfile as a single line:
 `[davinci-mcp] <name> <args> -> ok|error|EXCEPTION (Nms)`.
