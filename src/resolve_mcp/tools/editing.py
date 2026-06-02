@@ -248,11 +248,19 @@ def delete_timeline_item(resolve, args):
 
 @register(
     "insert_title",
-    "Insert a title generator (e.g. 'Text') into the timeline at the "
-    "playhead.",
+    "Insert a title generator into the timeline at the playhead. `title` is "
+    "the generator TEMPLATE name (e.g. 'Text', 'Lower Third'), NOT the "
+    "displayed text. The on-screen text defaults to 'Basic Title' and cannot "
+    "be changed via the Resolve API for basic titles — use "
+    "insert_fusion_title ('Text+') if you need custom text.",
     {
         "type": "object",
-        "properties": {"title": {"type": "string"}},
+        "properties": {
+            "title": {
+                "type": "string",
+                "description": "Generator template name (e.g. 'Text'), not the displayed text.",
+            }
+        },
         "required": ["title"],
     },
 )
@@ -266,10 +274,24 @@ def insert_title(resolve, args):
 
 @register(
     "insert_fusion_title",
-    "Insert a Fusion title (e.g. 'Text+') into the timeline at the playhead.",
+    "Insert a Fusion title into the timeline at the playhead. `title` is the "
+    "Fusion title TEMPLATE name (e.g. 'Text+'), NOT the displayed text. "
+    "Optionally pass `text` to set the on-screen text: it is written to the "
+    "'StyledText' input of every Text+ (TextPlus) node in the title's Fusion "
+    "composition. Templates whose text lives in a macro/published input may "
+    "not update (response reports how many nodes were set).",
     {
         "type": "object",
-        "properties": {"title": {"type": "string"}},
+        "properties": {
+            "title": {
+                "type": "string",
+                "description": "Fusion title template name (e.g. 'Text+'), not the displayed text.",
+            },
+            "text": {
+                "type": "string",
+                "description": "Optional on-screen text to write into the title's Text+ node(s).",
+            },
+        },
         "required": ["title"],
     },
 )
@@ -280,7 +302,24 @@ def insert_fusion_title(resolve, args):
         raise ToolError(
             f"InsertFusionTitleIntoTimeline({args['title']!r}) failed (unknown title)."
         )
-    return {"ok": True, "inserted": item.GetName()}
+    out = {"ok": True, "inserted": item.GetName()}
+    text = args.get("text")
+    if text is not None:
+        comp = item.GetFusionCompByIndex(1)
+        if not comp:
+            raise ToolError(
+                f"inserted {args['title']!r} but it has no Fusion composition to set text."
+            )
+        tools = comp.GetToolList(False, "TextPlus") or {}
+        set_count = 0
+        for tool in tools.values():
+            tool.SetInput("StyledText", text)
+            set_count += 1
+        out["text"] = text
+        out["text_nodes_set"] = set_count
+        if set_count == 0:
+            out["warning"] = "no Text+ (TextPlus) node found; text not applied."
+    return out
 
 
 @register(
