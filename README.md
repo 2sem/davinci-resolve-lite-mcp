@@ -1,5 +1,7 @@
 # davinci-resolve-lite-mcp
 
+[![test](https://github.com/2sem/davinci-resolve-lite-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/2sem/davinci-resolve-lite-mcp/actions/workflows/test.yml)
+
 An [MCP](https://modelcontextprotocol.io) server that lets an AI client such as
 **Claude Code** control **DaVinci Resolve** — including the **free (Lite)
 edition**, which the existing

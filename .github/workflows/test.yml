@@ -1,0 +1,23 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  offline:
+    # Offline suite — no DaVinci Resolve required (uses a fake Resolve object).
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Byte-compile (stdlib only, no deps)
+        run: python -m py_compile src/davinci_mcp_server.py src/stop_davinci_mcp_server.py src/resolve_mcp/*.py src/resolve_mcp/tools/*.py
+      - name: Offline tests (import + 149 tools + dispatcher + validation)
+        run: python tests/test_server.py
