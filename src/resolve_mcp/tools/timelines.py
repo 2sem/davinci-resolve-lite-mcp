@@ -185,31 +185,21 @@ def create_timeline(resolve, args):
 
 @register(
     "create_timeline_from_clips",
-    "Create a new timeline (with a unique name) from media-pool clips (by "
-    "name, in the order given, from the current folder).",
+    "Create a new timeline (unique name) from media-pool clips, in the order "
+    "given — by name (current folder) and/or by id (any bin).",
     {
         "type": "object",
         "properties": {
             "name": {"type": "string"},
             "names": {"type": "array", "items": {"type": "string"}},
+            "ids": {"type": "array", "items": {"type": "string"}},
         },
-        "required": ["name", "names"],
+        "required": ["name"],
     },
 )
 def create_timeline_from_clips(resolve, args):
-    project = _require_project(resolve)
-    mp = project.GetMediaPool()
-    folder = mp.GetCurrentFolder()
-    if not folder:
-        raise ToolError("No current media pool folder.")
-    by_name = {c.GetName(): c for c in (folder.GetClipList() or [])}
-    if not args["names"]:
-        raise ToolError("No clip names supplied.")
-    clips, missing = [], []
-    for n in args["names"]:
-        (clips if n in by_name else missing).append(by_name.get(n, n))
-    if missing:
-        raise ToolError(f"Clips not found in current folder: {[m for m in missing if isinstance(m, str)]}")
+    mp = _require_project(resolve).GetMediaPool()
+    clips = _resolve_clips(resolve, args.get("names"), args.get("ids"))
     tl = mp.CreateTimelineFromClips(args["name"], clips)
     if not tl:
         raise ToolError("CreateTimelineFromClips failed (name not unique?).")

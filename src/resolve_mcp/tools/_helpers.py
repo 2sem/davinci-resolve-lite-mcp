@@ -77,6 +77,28 @@ def _pool_clip(resolve, name=None, clip_id=None):
     raise ToolError(f"Clip {name!r} not found in current folder.")
 
 
+def _resolve_clips(resolve, names=None, ids=None):
+    """Resolve a list of MediaPoolItems: names from the current folder and/or
+    ids from anywhere in the pool, in the order given (names first, then ids).
+    Raises if any name/id is unmatched or if neither is provided."""
+    mp = _require_project(resolve).GetMediaPool()
+    clips, missing = [], []
+    if names:
+        folder = mp.GetCurrentFolder()
+        by_name = {c.GetName(): c for c in (folder.GetClipList() or [])} if folder else {}
+        for n in names:
+            clips.append(by_name[n]) if n in by_name else missing.append(n)
+    if ids:
+        by_id = {c.GetUniqueId(): c for c in _walk_clips(mp)}
+        for i in ids:
+            clips.append(by_id[i]) if i in by_id else missing.append(i)
+    if missing:
+        raise ToolError(f"Clips not found: {missing}")
+    if not clips:
+        raise ToolError("Provide 'names' and/or 'ids'.")
+    return clips
+
+
 def _find_folder(mp, name):
     """Find a media-pool Folder by name, searching the whole tree from root."""
     root = mp.GetRootFolder()
@@ -173,6 +195,7 @@ __all__ = [
     "_track_item",
     "_track_items_by_index",
     "_pool_clip",
+    "_resolve_clips",
     "_find_folder",
     "_node_graph",
     "_current_still_album",

@@ -322,33 +322,21 @@ def get_current_video_item(resolve, args):
 
 @register(
     "append_clips_to_timeline",
-    "Append media pool clips (by name, from the current folder) to the current timeline.",
+    "Append media-pool clips to the current timeline, by name (current folder) "
+    "and/or by id (any bin).",
     {
         "type": "object",
         "properties": {
             "names": {"type": "array", "items": {"type": "string"}},
+            "ids": {"type": "array", "items": {"type": "string"}},
         },
-        "required": ["names"],
     },
 )
 def append_clips_to_timeline(resolve, args):
-    project = _require_project(resolve)
-    mp = project.GetMediaPool()
-    folder = mp.GetCurrentFolder()
-    if not folder:
-        raise ToolError("No current media pool folder.")
-    by_name = {c.GetName(): c for c in (folder.GetClipList() or [])}
-    wanted = []
-    missing = []
-    for n in args["names"]:
-        if n in by_name:
-            wanted.append(by_name[n])
-        else:
-            missing.append(n)
-    if missing:
-        raise ToolError(f"Clips not found in current folder: {missing}")
-    added = mp.AppendToTimeline(wanted) or []
-    return {"appended": len(added), "missing": missing}
+    _require_timeline(resolve)
+    clips = _resolve_clips(resolve, args.get("names"), args.get("ids"))
+    added = _require_project(resolve).GetMediaPool().AppendToTimeline(clips) or []
+    return {"ok": True, "appended": len(added)}
 
 
 @register(
