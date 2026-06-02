@@ -167,3 +167,10 @@ def _():
     cid = with_id[0]["id"]
     r = call("get_clip_properties", id=cid)
     need(r["name"] == with_id[0]["name"], "id resolved to wrong clip")
+    # multi-clip-by-id path: append by id onto scratch, then clean up
+    goto_scratch()
+    n0 = len(call("get_track_items", trackType="video", index=1)["items"])
+    call("append_clips_to_timeline", ids=[cid])
+    n1 = len(call("get_track_items", trackType="video", index=1)["items"])
+    need(n1 == n0 + 1, "append by id did not add a clip")
+    call("delete_timeline_item", trackType="video", trackIndex=1, itemIndex=n1)

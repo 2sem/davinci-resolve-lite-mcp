@@ -58,31 +58,21 @@ def import_media(resolve, args):
 
 @register(
     "delete_clip",
-    "Delete clips (by name, from the current media pool folder) from the "
-    "media pool.",
+    "Delete media-pool clips by name (current folder) and/or by id (any bin).",
     {
         "type": "object",
         "properties": {
             "names": {"type": "array", "items": {"type": "string"}},
+            "ids": {"type": "array", "items": {"type": "string"}},
         },
-        "required": ["names"],
     },
 )
 def delete_clip(resolve, args):
-    project = _require_project(resolve)
-    mp = project.GetMediaPool()
-    folder = mp.GetCurrentFolder()
-    if not folder:
-        raise ToolError("No current media pool folder.")
-    by_name = {c.GetName(): c for c in (folder.GetClipList() or [])}
-    wanted, missing = [], []
-    for n in args["names"]:
-        (wanted if n in by_name else missing).append(by_name.get(n, n))
-    if not wanted:
-        raise ToolError(f"Clips not found in current folder: {missing}")
-    if not mp.DeleteClips(wanted):
+    clips = _resolve_clips(resolve, args.get("names"), args.get("ids"))
+    mp = _require_project(resolve).GetMediaPool()
+    if not mp.DeleteClips(clips):
         raise ToolError("DeleteClips failed.")
-    return {"deleted": len(wanted), "missing": [m for m in missing if isinstance(m, str)]}
+    return {"ok": True, "deleted": len(clips)}
 
 
 @register(
@@ -381,28 +371,21 @@ def delete_subfolders(resolve, args):
 
 @register(
     "move_clips_to_folder",
-    "Move clips (by name, from the current folder) into a target folder "
-    "(by name, searched from the root).",
+    "Move clips (by name from the current folder, and/or by id) into a target "
+    "folder (by name, searched from the root).",
     {"type": "object", "properties": {
         "names": {"type": "array", "items": {"type": "string"}},
+        "ids": {"type": "array", "items": {"type": "string"}},
         "targetFolder": {"type": "string"}},
-     "required": ["names", "targetFolder"]},
+     "required": ["targetFolder"]},
 )
 def move_clips_to_folder(resolve, args):
-    project = _require_project(resolve)
-    mp = project.GetMediaPool()
-    folder = mp.GetCurrentFolder()
-    if not folder:
-        raise ToolError("No current media pool folder.")
-    by_name = {c.GetName(): c for c in (folder.GetClipList() or [])}
-    clips = [by_name[n] for n in args["names"] if n in by_name]
-    missing = [n for n in args["names"] if n not in by_name]
-    if not clips:
-        raise ToolError(f"No matching clips: {missing}")
+    mp = _require_project(resolve).GetMediaPool()
+    clips = _resolve_clips(resolve, args.get("names"), args.get("ids"))
     target = _find_folder(mp, args["targetFolder"])
     if not mp.MoveClips(clips, target):
         raise ToolError("MoveClips failed.")
-    return {"ok": True, "moved": len(clips), "missing": missing, "to": target.GetName()}
+    return {"ok": True, "moved": len(clips), "to": target.GetName()}
 
 
 @register(
@@ -472,24 +455,17 @@ def link_full_resolution_media(resolve, args):
 
 @register(
     "relink_clips",
-    "Relink media-pool clips (by name, from the current folder) to media "
-    "found under a folder path.",
+    "Relink media-pool clips (by name from the current folder, and/or by id) to "
+    "media found under a folder path.",
     {"type": "object", "properties": {
         "names": {"type": "array", "items": {"type": "string"}},
+        "ids": {"type": "array", "items": {"type": "string"}},
         "folderPath": {"type": "string"}},
-     "required": ["names", "folderPath"]},
+     "required": ["folderPath"]},
 )
 def relink_clips(resolve, args):
-    project = _require_project(resolve)
-    mp = project.GetMediaPool()
-    folder = mp.GetCurrentFolder()
-    if not folder:
-        raise ToolError("No current media pool folder.")
-    by_name = {c.GetName(): c for c in (folder.GetClipList() or [])}
-    missing = [n for n in args["names"] if n not in by_name]
-    if missing:
-        raise ToolError(f"Clips not found in current folder: {missing}")
-    clips = [by_name[n] for n in args["names"]]
+    mp = _require_project(resolve).GetMediaPool()
+    clips = _resolve_clips(resolve, args.get("names"), args.get("ids"))
     if not mp.RelinkClips(clips, os.path.expanduser(args["folderPath"])):
         raise ToolError("RelinkClips failed.")
     return {"ok": True, "relinked": len(clips)}
