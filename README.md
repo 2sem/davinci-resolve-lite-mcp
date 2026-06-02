@@ -75,6 +75,9 @@ The Lite container path is detected automatically.
 ## Run
 
 1. In DaVinci Resolve: **Workspace > Scripts > Utility > davinci_mcp_server**.
+
+   ![Workspace > Scripts menu showing davinci_mcp_server and stop_davinci_mcp_server](docs/images/menu.png)
+
 2. Open **Workspace > Console** — it prints the endpoint and port:
 
    ```
@@ -94,6 +97,11 @@ The Lite container path is detected automatically.
    > Watch it live with `./logs.sh`. (Override the directory with
    > `DAVINCI_MCP_LOG_DIR`.) `~/Movies` is used because the sandboxed Lite app
    > is allowed to write there.
+
+   Once running, every tool call is logged to the Console as a single line
+   (`[davinci-mcp] <name> <args> -> ok|error (Nms)`):
+
+   ![Resolve Console showing per-command davinci-mcp log lines](docs/images/console.png)
 
 3. Register it with Claude Code:
 
