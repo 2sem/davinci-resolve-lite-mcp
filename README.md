@@ -103,11 +103,16 @@ The Lite container path is detected automatically.
 
    ![Resolve Console showing per-command davinci-mcp log lines](docs/images/console.png)
 
-3. Register it with Claude Code:
+3. Register it with Claude Code (one-time):
 
    ```bash
    claude mcp add --transport http davinci http://127.0.0.1:8765/mcp
    ```
+
+   Then verify / reconnect with the **`/mcp`** command inside Claude Code — it
+   lists connected servers and reconnects them. If Claude was already running
+   when you launched the script, type `/mcp` (or restart the session) so it
+   picks up the `davinci` server.
 
 4. Ask Claude to control Resolve.
 
