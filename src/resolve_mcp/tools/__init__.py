@@ -183,6 +183,10 @@ _TOOL_ORDER = [
 # Order known tools by _TOOL_ORDER; append any newly-registered tools not yet
 # listed (stable) so adding a tool needs only @register — no _TOOL_ORDER edit.
 _rank = {name: i for i, name in enumerate(_TOOL_ORDER)}
+# Fail loudly if a name listed in _TOOL_ORDER was never registered (e.g. a
+# renamed handler or a missing @register), instead of silently omitting it.
+_missing = [n for n in _TOOL_ORDER if n not in TOOLS]
+assert not _missing, f"tools in _TOOL_ORDER not registered: {_missing}"
 TOOLS = dict(sorted(TOOLS.items(), key=lambda kv: _rank.get(kv[0], len(_rank))))
 
 __all__ = ["TOOLS", "ToolError", "register"]
