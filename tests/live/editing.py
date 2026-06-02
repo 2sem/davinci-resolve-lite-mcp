@@ -62,6 +62,13 @@ def _():
     goto_scratch()
     call("insert_fusion_title", title="Text+"); _delete_last_video_item()
 
+@test("insert_fusion_title_with_text")
+def _():
+    goto_scratch()
+    r = call("insert_fusion_title", title="Text+", text="GameHelper")
+    need(r["text"] == "GameHelper"); need(r["text_nodes_set"] >= 1)
+    _delete_last_video_item()
+
 @test("insert_generator")
 def _():
     goto_scratch()
