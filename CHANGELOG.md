@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.11.0
+
+### Added
+- `get_timeline_markers` — list all markers on the current timeline
+  (`Timeline.GetMarkers`). There was add/delete but no list (149 tools).
+
+### Changed
+- Tool registry now appends any `@register`'d tool not in `_TOOL_ORDER` (stable),
+  so adding a tool no longer requires editing the order list; an `assert` fails
+  loudly at import if a listed name is never registered.
+
 ## 0.10.0
 
 ### Added
