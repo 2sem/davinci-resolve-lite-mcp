@@ -78,15 +78,24 @@ def _playhead_frame(tl, project):
     offset, e.g. 01:00:00:00 = 108000), but item.GetStart()/GetEnd() are
     0-based (relative to the timeline start). Subtract the start frame so the
     result is in the same space as the item bounds.
-    NDF only; drop-frame ('hh:mm:ss;ff') is treated as NDF (best effort).
+
+    Drop-frame timecode ('hh:mm:ss;ff', 29.97/59.94) labels skip frame numbers
+    each minute except every 10th, so a plain parse over-counts; apply the
+    drop-frame correction when ';' is present.
     """
     tc = tl.GetCurrentTimecode() or "00:00:00:00"
     fps = int(round(float(project.GetSetting("timelineFrameRate") or 24)))
+    drop = ";" in tc
     parts = tc.replace(";", ":").split(":")
     if len(parts) != 4 or not all(p.isdigit() for p in parts):
         raise ToolError(f"could not parse current timecode {tc!r}.")
     hh, mm, ss, ff = (int(p) for p in parts)
     abs_frame = ((hh * 60 + mm) * 60 + ss) * fps + ff
+    if drop:
+        # 2 dropped frames/min at 29.97, 4 at 59.94; none on every 10th minute.
+        drop_per_min = round(fps * 0.066666)
+        total_minutes = hh * 60 + mm
+        abs_frame -= drop_per_min * (total_minutes - total_minutes // 10)
     return abs_frame - (tl.GetStartFrame() or 0)
 
 
