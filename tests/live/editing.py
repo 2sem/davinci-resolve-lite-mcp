@@ -54,8 +54,9 @@ def _():
     need(end - start >= 4)
     mid = start + (end - start) // 2
     n0 = len(items)
+    # explicit frame + itemIndex override
     r = call("split_clip", trackType="video", trackIndex=1, itemIndex=1, frame=mid)
-    need(len(r["halves"]) == 2)
+    need(len(r["halves"]) == 2); need(r["frame"] == mid)
     n1 = len(call("get_track_items", trackType="video", index=1)["items"])
     need(n1 == n0 + 1)
     # contiguity: halves cover the original range with no gap/overlap.
@@ -63,6 +64,25 @@ def _():
     b = call("get_timeline_item_timing", trackType="video", trackIndex=1, itemIndex=2)
     need(a["start"] == start); need(b["start"] == a["end"]); need(b["end"] == end)
     # cleanup: remove the two new halves
+    call("delete_timeline_item", trackType="video", trackIndex=1, itemIndex=2)
+    call("delete_timeline_item", trackType="video", trackIndex=1, itemIndex=1)
+
+@test("split_clip_at_playhead")
+def _():
+    # Default mode: cut at the playhead, auto-finding the clip — no frame/index.
+    goto_scratch(); src_required()
+    t = call("get_timeline_item_timing", trackType="video", trackIndex=1, itemIndex=1)
+    start, end = t["start"], t["end"]
+    need(end - start >= 4)
+    mid = start + (end - start) // 2
+    fps = int(round(float(call("get_project_info")["framerate"])))
+    absf = call("get_timeline_info")["startFrame"] + mid  # timecode is absolute
+    hh, rem = divmod(absf, 3600 * fps)
+    mm, rem = divmod(rem, 60 * fps)
+    ss, ff = divmod(rem, fps)
+    call("set_timecode", timecode=f"{hh:02d}:{mm:02d}:{ss:02d}:{ff:02d}")
+    r = call("split_clip", trackType="video", trackIndex=1)  # playhead + auto-find
+    need(len(r["halves"]) == 2); need(r["frame"] == mid)
     call("delete_timeline_item", trackType="video", trackIndex=1, itemIndex=2)
     call("delete_timeline_item", trackType="video", trackIndex=1, itemIndex=1)
 

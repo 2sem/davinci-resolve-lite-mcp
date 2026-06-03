@@ -71,6 +71,25 @@ def _load_system_fonts():
     return _FONT_CACHE
 
 
+def _playhead_frame(tl, project):
+    """Current playhead position as a 0-based timeline frame.
+
+    Timecode and GetStartFrame() are ABSOLUTE (include the start-timecode
+    offset, e.g. 01:00:00:00 = 108000), but item.GetStart()/GetEnd() are
+    0-based (relative to the timeline start). Subtract the start frame so the
+    result is in the same space as the item bounds.
+    NDF only; drop-frame ('hh:mm:ss;ff') is treated as NDF (best effort).
+    """
+    tc = tl.GetCurrentTimecode() or "00:00:00:00"
+    fps = int(round(float(project.GetSetting("timelineFrameRate") or 24)))
+    parts = tc.replace(";", ":").split(":")
+    if len(parts) != 4 or not all(p.isdigit() for p in parts):
+        raise ToolError(f"could not parse current timecode {tc!r}.")
+    hh, mm, ss, ff = (int(p) for p in parts)
+    abs_frame = ((hh * 60 + mm) * 60 + ss) * fps + ff
+    return abs_frame - (tl.GetStartFrame() or 0)
+
+
 @register(
     "get_timeline_item_property",
     "Read transform/crop/composite properties of a timeline clip. Address it "
@@ -762,30 +781,53 @@ def add_clip_to_timeline(resolve, args):
 
 @register(
     "split_clip",
-    "Blade/razor a timeline clip into two contiguous clips at timeline frame "
-    "'frame'. Address the clip by trackType + trackIndex + itemIndex (1-based). "
-    "MCP-original: Resolve's API has no split/blade, so this deletes the clip "
-    "and re-adds its two halves from the same media-pool source at the exact "
-    "record frames (no gap). LIMITATION: the re-added halves are fresh timeline "
-    "items — clip-level grade / Fusion / transform / retime and linked audio "
-    "are NOT preserved. 'frame' must be strictly inside the clip.",
+    "Blade/razor a timeline clip into two contiguous clips — like the razor "
+    "tool. By default it cuts at the PLAYHEAD on the given track (trackType "
+    "defaults to 'video', trackIndex to 1), auto-finding the clip under the "
+    "playhead — so the usual flow is just set_timecode then split_clip. "
+    "Optional overrides: 'frame' (absolute timeline frame instead of the "
+    "playhead) and 'itemIndex' (target a specific clip instead of the one "
+    "under the playhead). MCP-original: Resolve's API has no split/blade, so "
+    "this deletes the clip and re-adds its two halves from the same media-pool "
+    "source at the exact record frames (no gap). LIMITATION: the re-added "
+    "halves are fresh timeline items — clip-level grade / Fusion / transform / "
+    "retime and linked audio are NOT preserved.",
     {
         "type": "object",
         "properties": {
-            **_ITEM_ADDR,
-            "frame": {
-                "type": "integer",
-                "description": "Timeline frame to split at (strictly inside the clip).",
-            },
+            "trackType": {"type": "string", "enum": ["video", "audio", "subtitle"],
+                          "default": "video"},
+            "trackIndex": {"type": "integer", "minimum": 1, "default": 1},
+            "frame": {"type": "integer",
+                      "description": "Absolute timeline frame to cut at. Default: the playhead."},
+            "itemIndex": {"type": "integer", "minimum": 1,
+                          "description": "1-based clip on the track. Default: the clip under the cut frame."},
         },
-        "required": ["trackType", "trackIndex", "itemIndex", "frame"],
+        "required": [],
     },
 )
 def split_clip(resolve, args):
     project = _require_project(resolve)
     tl = _require_timeline(resolve)
-    item = _track_item(resolve, args)
-    frame = args["frame"]
+    ttype = args.get("trackType", "video")
+    tidx = args.get("trackIndex", 1)
+    frame = args.get("frame")
+    if frame is None:
+        frame = _playhead_frame(tl, project)
+
+    items = tl.GetItemListInTrack(ttype, tidx) or []
+    if args.get("itemIndex") is not None:
+        ii = args["itemIndex"]
+        if ii < 1 or ii > len(items):
+            raise ToolError(f"no item #{ii} on {ttype}{tidx} ({len(items)} item(s)).")
+        item = items[ii - 1]
+    else:
+        item = next((it for it in items if it.GetStart() <= frame < it.GetEnd()), None)
+        if item is None:
+            raise ToolError(
+                f"no clip under frame {frame} on {ttype}{tidx} — move the "
+                "playhead onto a clip, or pass 'frame'/'itemIndex'."
+            )
     t_start, t_end = item.GetStart(), item.GetEnd()
     if not (t_start < frame < t_end):
         raise ToolError(
@@ -799,8 +841,10 @@ def split_clip(resolve, args):
             "title?) — cannot split."
         )
     track = item.GetTrackTypeAndIndex() or []
-    ttype = track[0] if track else args["trackType"]
-    tidx = track[1] if len(track) > 1 else args["trackIndex"]
+    if track:
+        ttype = track[0]
+        if len(track) > 1:
+            tidx = track[1]
     src_in, src_end = item.GetSourceStartFrame(), item.GetSourceEndFrame()
     src_split = src_in + (frame - t_start)
     media_type = 1 if ttype == "video" else 2
