@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.13.0
+
+### Added
+- `set_fusion_title_text` — set the on-screen text of an existing Fusion title
+  on the timeline (writes `StyledText` on every Text+ node in its Fusion comp).
+- `style_fusion_title` — style + animate a Fusion (Text+) title into an opening
+  card by editing its Fusion node graph: font/size/color, optional black
+  Background, Glow, and a zoom-in `Size` keyframe reveal. Idempotent (re-running
+  reuses its own named nodes instead of stacking duplicates) and best-effort
+  (per-step `applied` report; template-incompatible steps skip, not fatal).
+- `insert_fusion_title` now takes an optional `text` argument that sets the
+  title's on-screen text at insert time.
+- `list_fonts` — list installed font families and their English style/weight
+  names (from the OS font database) so callers pick a valid Font+Style and avoid
+  Fusion's "Could not find font" render error. 149 → 152 tools.
+
+### Changed
+- Clarified `insert_title` / `insert_fusion_title` docs: the `title` argument is
+  the generator **template name**, not the displayed text (basic `Text` titles
+  default to "Basic Title" and have no API to change it; use a Fusion title).
+- Startup connect-guide log now includes how to allow every `davinci` tool at
+  once (`mcp__davinci` permission rule).
+- Docs: new "MCP-original tools" section in `docs/TOOLS.md` (tools with no 1:1
+  Resolve API), tool-count fixes, CONTRIBUTING guide, CI matrix, start-guide
+  screenshots.
+
+### Fixed
+- `subprocess` output inside Resolve's ASCII-locale Python crashed on non-ASCII
+  font names; capture bytes and decode UTF-8 explicitly (`fallbacks/10`).
+
 ## 0.12.0
 
 ### Added
