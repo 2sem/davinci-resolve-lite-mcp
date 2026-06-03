@@ -112,10 +112,10 @@ def _():
     n = len(call("get_track_items", trackType="video", index=1)["items"])
     r = call("style_fusion_title", trackType="video", trackIndex=1, itemIndex=n,
              font="Open Sans", style="Bold", background=True, glow=True, animate=False)
-    # first-ever style of this clip: our nodes did not exist yet, so they were
-    # added (not reported as :exists) despite the template's own Background.
-    need("background:exists" not in r["applied"])
-    need("glow:exists" not in r["applied"])
+    # first-ever style of this clip: our nodes did not exist yet, so they must
+    # be ADDED (not reported as :exists) despite the template's own Background.
+    need("background" in r["applied"]); need("background:exists" not in r["applied"])
+    need("glow" in r["applied"]); need("glow:exists" not in r["applied"])
     call("delete_timeline_item", trackType="video", trackIndex=1, itemIndex=n)
 
 @test("list_fonts")

@@ -530,23 +530,35 @@ def style_fusion_title(resolve, args):
         BG_NAME, MERGE_NAME, GLOW_NAME = "MCPStyleBG", "MCPStyleMerge", "MCPStyleGlow"
         ours = lambda name: comp.FindTool(name) is not None
 
+        def added(tool, what):
+            # AddTool returns None on failure rather than raising; turn that
+            # into an exception so step() reports ':skipped' instead of a
+            # silent success on a half-built graph.
+            if not tool:
+                raise ToolError(f"Fusion AddTool failed for {what}.")
+            return tool
+
         if args.get("background", True) and mout is not None and upstream is not None:
             if ours(MERGE_NAME):
                 applied.append("background:exists")
             else:
                 def add_bg():
-                    bg = comp.AddTool("Background")
-                    bg.SetAttrs({"TOOLS_Name": BG_NAME})
+                    bg = added(comp.AddTool("Background"), "Background")
                     bg.SetInput("UseFrameFormatSettings", 1)
                     bg.SetInput("TopLeftRed", 0.0)
                     bg.SetInput("TopLeftGreen", 0.0)
                     bg.SetInput("TopLeftBlue", 0.0)
                     bg.SetInput("TopLeftAlpha", 1.0)
-                    mrg = comp.AddTool("Merge")
-                    mrg.SetAttrs({"TOOLS_Name": MERGE_NAME})
+                    mrg = added(comp.AddTool("Merge"), "Merge")
                     mrg.ConnectInput("Background", bg)
                     mrg.ConnectInput("Foreground", upstream)
                     mout.ConnectInput("Input", mrg)
+                    # Name LAST: the MCPStyle* marker only attaches once the
+                    # node is fully wired, so a partial failure above leaves no
+                    # marker and the next run retries cleanly (no false
+                    # 'exists', no stacked-but-unwired Merge).
+                    bg.SetAttrs({"TOOLS_Name": BG_NAME})
+                    mrg.SetAttrs({"TOOLS_Name": MERGE_NAME})
                 step("background", add_bg)
                 # after splice, the tool feeding MediaOut is now our Merge
                 our_mrg = comp.FindTool(MERGE_NAME)
@@ -558,10 +570,10 @@ def style_fusion_title(resolve, args):
                 applied.append("glow:exists")
             else:
                 def add_glow():
-                    glow = comp.AddTool("Glow")
-                    glow.SetAttrs({"TOOLS_Name": GLOW_NAME})
+                    glow = added(comp.AddTool("Glow"), "Glow")
                     glow.ConnectInput("Input", upstream)
                     mout.ConnectInput("Input", glow)
+                    glow.SetAttrs({"TOOLS_Name": GLOW_NAME})  # name last
                 step("glow", add_glow)
 
         if args.get("animate", True):
