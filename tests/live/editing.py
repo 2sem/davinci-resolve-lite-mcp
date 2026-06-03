@@ -79,6 +79,28 @@ def _():
     need(r["text"] == "GameHelper"); need(r["text_nodes_set"] >= 1)
     call("delete_timeline_item", trackType="video", trackIndex=1, itemIndex=n)
 
+@test("style_fusion_title")
+def _():
+    goto_scratch()
+    call("insert_fusion_title", title="Text+", text="GameHelper")
+    n = len(call("get_track_items", trackType="video", index=1)["items"])
+    r = call("style_fusion_title", trackType="video", trackIndex=1, itemIndex=n,
+             font="Open Sans", style="Bold", size=0.14, color="#FFD700",
+             glow=True, background=True, animate=True, animate_frames=30)
+    # core text styling must apply; node-graph steps may skip per template.
+    for core in ("font", "size", "color"):
+        need(core in r["applied"])
+    call("delete_timeline_item", trackType="video", trackIndex=1, itemIndex=n)
+
+@test("list_fonts")
+def _():
+    try:
+        r = call("list_fonts", family="Arial")
+    except AssertionError as e:
+        raise Skip(f"font enumeration unavailable: {str(e)[:60]}")
+    need(r["ok"]); need("Arial" in r["fonts"])
+    need("Regular" in r["fonts"]["Arial"])  # English style, not localized
+
 @test("insert_generator")
 def _():
     goto_scratch()

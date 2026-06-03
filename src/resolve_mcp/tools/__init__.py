@@ -64,6 +64,8 @@ _TOOL_ORDER = [
     'insert_title',
     'insert_fusion_title',
     'set_fusion_title_text',
+    'style_fusion_title',
+    'list_fonts',
     'insert_generator',
     'get_current_video_item',
     'get_timecode',

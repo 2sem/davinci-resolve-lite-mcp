@@ -133,7 +133,7 @@ endpoint, scanning the same port range the server uses on startup.
 
 ## Tools
 
-**150 tools**, all exercised live against DaVinci Resolve Lite, spanning the
+**152 tools**, all exercised live against DaVinci Resolve Lite, spanning the
 full pipeline:
 
 - **Status & navigation** — page switching, project/timeline settings

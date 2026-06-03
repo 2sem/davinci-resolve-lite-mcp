@@ -1,9 +1,66 @@
 """Editing Resolve MCP tools."""
 
+import json as _json
 import os
+import subprocess
+import sys
 
 from . import register
 from ._helpers import *
+
+_FONT_CACHE = None
+
+
+def _load_system_fonts():
+    """Map {family: [English styles]} from the OS font database (macOS).
+
+    Cached for the server's lifetime — the first call shells out to
+    system_profiler (~8s). The App Sandbox on Resolve Lite may deny the
+    exec; that surfaces as a clear ToolError rather than a hang.
+    """
+    global _FONT_CACHE
+    if _FONT_CACHE is not None:
+        return _FONT_CACHE
+    if sys.platform != "darwin":
+        raise ToolError("list_fonts is macOS-only (uses system_profiler).")
+    try:
+        # NOT text=True: Resolve's embedded Python uses an ASCII locale, so
+        # text mode would decode the (often non-ASCII) font names with ascii
+        # and crash. Capture bytes and decode UTF-8 ourselves.
+        proc = subprocess.run(
+            ["/usr/sbin/system_profiler", "-json", "SPFontsDataType"],
+            capture_output=True,
+            timeout=30,
+        )
+    except (PermissionError, OSError) as exc:
+        raise ToolError(
+            "font enumeration is blocked here (the Resolve Lite App Sandbox "
+            f"denies running system_profiler: {type(exc).__name__}). It works "
+            "on the non-sandboxed Studio build. Use a font you know is "
+            "installed (style 'Regular' is safest)."
+        )
+    if proc.returncode != 0:
+        err = proc.stderr.decode("utf-8", "replace")[:160].strip()
+        raise ToolError(f"system_profiler failed (rc={proc.returncode}): {err}")
+    data = _json.loads(proc.stdout.decode("utf-8", "replace")).get(
+        "SPFontsDataType", []
+    )
+    fams = {}
+    for f in data:
+        for t in f.get("typefaces", []):
+            family = t.get("family")
+            if not family:
+                continue
+            # system_profiler localizes 'style' (e.g. Korean '볼드체'); the
+            # English style lives in 'fullname' as "Family Style".
+            full = (t.get("fullname") or "").strip()
+            if full.lower().startswith(family.lower()):
+                style = full[len(family):].strip()
+            else:
+                style = (t.get("style") or "").strip()
+            fams.setdefault(family, set()).add(style or "Regular")
+    _FONT_CACHE = {k: sorted(v) for k, v in sorted(fams.items())}
+    return _FONT_CACHE
 
 
 @register(
@@ -367,6 +424,176 @@ def set_fusion_title_text(resolve, args):
         "text": args["text"],
         "text_nodes_set": set_count,
     }
+
+
+def _hex_to_rgb(s):
+    """'#FFD700' or 'FFD700' -> (r, g, b) floats in 0..1."""
+    s = str(s).lstrip("#")
+    if len(s) != 6:
+        raise ToolError(f"color {s!r} must be a 6-digit hex like '#FFD700'.")
+    try:
+        r, g, b = (int(s[i : i + 2], 16) / 255.0 for i in (0, 2, 4))
+    except ValueError:
+        raise ToolError(f"color {s!r} is not valid hex.")
+    return r, g, b
+
+
+@register(
+    "style_fusion_title",
+    "Style + animate an existing Fusion (Text+) title into an 'awesome "
+    "opening' by editing its Fusion node graph. Address the clip by trackType "
+    "+ trackIndex + itemIndex (1-based). Best-effort: sets font/size/color on "
+    "the Text+ node and (optionally) inserts Background + Glow nodes and a "
+    "zoom-in Size keyframe animation. MCP-original tool: composes Fusion "
+    "AddTool / ConnectInput / SetInput / BezierSpline. The response reports "
+    "which steps applied; steps that fail on a given template are skipped, "
+    "not fatal. Only works on Fusion titles (Text+), not basic titles.",
+    {
+        "type": "object",
+        "properties": {
+            **_ITEM_ADDR,
+            "font": {"type": "string", "default": "Open Sans",
+                     "description": "Font family. MUST be installed AND have the "
+                     "chosen 'style', or Fusion fails to render the title "
+                     "(e.g. 'Impact' has no Bold). 'Open Sans' Bold is bundled "
+                     "with Fusion and always works."},
+            "style": {"type": "string", "default": "Bold",
+                      "description": "Font style/weight (e.g. Bold, Regular). Must "
+                      "exist for the chosen font. Pass '' to leave unset."},
+            "size": {"type": "number", "default": 0.13,
+                     "description": "Text+ Size (0..1), ~0.12-0.15 for big titles."},
+            "color": {"type": "string", "default": "#FFD700",
+                      "description": "Text color hex (default gold)."},
+            "glow": {"type": "boolean", "default": True,
+                     "description": "Insert a Glow node before output (neon)."},
+            "background": {"type": "boolean", "default": True,
+                           "description": "Composite over a black Background node."},
+            "animate": {"type": "boolean", "default": True,
+                        "description": "Zoom-in reveal: Size 0 -> size over frames."},
+            "animate_frames": {"type": "integer", "default": 30},
+        },
+        "required": ["trackType", "trackIndex", "itemIndex"],
+    },
+)
+def style_fusion_title(resolve, args):
+    item = _track_item(resolve, args)
+    if item.GetFusionCompCount() < 1:
+        raise ToolError(
+            f"{item.GetName()!r} has no Fusion composition (not a Fusion title)."
+        )
+    comp = item.GetFusionCompByIndex(1)
+    texts = list((comp.GetToolList(False, "TextPlus") or {}).values())
+    if not texts:
+        raise ToolError(
+            f"{item.GetName()!r} has no Text+ (TextPlus) node to style."
+        )
+    tp = texts[0]
+    r, g, b = _hex_to_rgb(args.get("color", "#FFD700"))
+    applied = []
+
+    def step(name, fn):
+        try:
+            fn()
+            applied.append(name)
+        except Exception as exc:  # template-specific; skip, don't fail the call
+            applied.append(f"{name}:skipped({type(exc).__name__})")
+
+    font = args.get("font", "Open Sans")
+    fstyle = args.get("style", "Bold")
+
+    def set_font():
+        tp.SetInput("Font", font)
+        if fstyle:  # empty -> leave the font's default style untouched
+            tp.SetInput("Style", fstyle)
+
+    comp.Lock()
+    try:
+        step("font", set_font)
+        step("size", lambda: tp.SetInput("Size", args.get("size", 0.13)))
+        step("color", lambda: (tp.SetInput("Red1", r), tp.SetInput("Green1", g),
+                               tp.SetInput("Blue1", b)))
+
+        # Find the MediaOut and the tool currently feeding it, so we can splice
+        # Background/Merge and Glow into the chain without guessing names.
+        mouts = list((comp.GetToolList(False, "MediaOut") or {}).values())
+        mout = mouts[0] if mouts else None
+        upstream = None
+        if mout is not None:
+            out = mout.FindMainInput(1).GetConnectedOutput()
+            upstream = out.GetTool() if out else None
+
+        if args.get("background", True) and mout is not None and upstream is not None:
+            def add_bg():
+                bg = comp.AddTool("Background")
+                bg.SetInput("UseFrameFormatSettings", 1)
+                bg.SetInput("TopLeftRed", 0.0)
+                bg.SetInput("TopLeftGreen", 0.0)
+                bg.SetInput("TopLeftBlue", 0.0)
+                bg.SetInput("TopLeftAlpha", 1.0)
+                mrg = comp.AddTool("Merge")
+                mrg.ConnectInput("Background", bg)
+                mrg.ConnectInput("Foreground", upstream)
+                mout.ConnectInput("Input", mrg)
+            step("background", add_bg)
+            # after splice, the tool feeding MediaOut is now the Merge
+            mrg_list = list((comp.GetToolList(False, "Merge") or {}).values())
+            if mrg_list:
+                upstream = mrg_list[-1]
+
+        if args.get("glow", True) and mout is not None and upstream is not None:
+            def add_glow():
+                glow = comp.AddTool("Glow")
+                glow.ConnectInput("Input", upstream)
+                mout.ConnectInput("Input", glow)
+            step("glow", add_glow)
+
+        if args.get("animate", True):
+            frames = int(args.get("animate_frames", 30))
+            target = args.get("size", 0.13)
+
+            def add_anim():
+                start = comp.GetAttrs()["COMPN_RenderStart"]
+                tp.Size = comp.BezierSpline({})
+                tp.Size[start] = 0.0
+                tp.Size[start + frames] = target
+            step("animate", add_anim)
+    finally:
+        comp.Unlock()
+
+    return {
+        "ok": True,
+        "item": item.GetName(),
+        "color": args.get("color", "#FFD700"),
+        "applied": applied,
+    }
+
+
+@register(
+    "list_fonts",
+    "List installed font families and their English style/weight names so "
+    "titles get a valid Font + Style (avoids Fusion's 'Could not find font' "
+    "render error — e.g. 'Impact' has only 'Regular', no 'Bold'). macOS only; "
+    "reads the OS font database via system_profiler — first call ~8s, cached "
+    "after. NOTE: on the Resolve Lite App Sandbox this may be blocked (works "
+    "on Studio); it then returns a clear error. Optional 'family' filters to "
+    "families whose name contains it (case-insensitive).",
+    {
+        "type": "object",
+        "properties": {
+            "family": {
+                "type": "string",
+                "description": "Substring filter on family name (case-insensitive).",
+            }
+        },
+        "required": [],
+    },
+)
+def list_fonts(resolve, args):
+    fams = _load_system_fonts()
+    q = (args.get("family") or "").strip().lower()
+    if q:
+        fams = {k: v for k, v in fams.items() if q in k.lower()}
+    return {"ok": True, "count": len(fams), "fonts": fams}
 
 
 @register(
