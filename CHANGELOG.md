@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.13.1
+
+### Added
+- `style_fusion_title` pre-validates the requested font style against the OS
+  font database: if the family is a known OS font (per `list_fonts`) but lacks
+  the chosen style (e.g. `Impact` has no Bold), it errors up front instead of
+  producing an uncatchable Fusion render error. Fonts absent from the OS DB
+  (e.g. Fusion-bundled "Open Sans") are not rejected.
+
+### Fixed
+- `_load_system_fonts` now normalizes `system_profiler` timeout and parse
+  failures to a clean error, so font-validation always degrades to "skip"
+  rather than failing the call.
+- README install snippet uses the real clone URL.
+
 ## 0.13.0
 
 ### Added
