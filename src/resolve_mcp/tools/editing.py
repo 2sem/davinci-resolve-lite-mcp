@@ -522,30 +522,41 @@ def style_fusion_title(resolve, args):
             out = mout.FindMainInput(1).GetConnectedOutput()
             upstream = out.GetTool() if out else None
 
+        # Idempotency: re-running must not stack duplicate Background/Glow
+        # nodes. If the comp already has one, skip the add (the existing node
+        # stays wired) and report it as ':exists'.
+        has = lambda tid: bool(comp.GetToolList(False, tid))
+
         if args.get("background", True) and mout is not None and upstream is not None:
-            def add_bg():
-                bg = comp.AddTool("Background")
-                bg.SetInput("UseFrameFormatSettings", 1)
-                bg.SetInput("TopLeftRed", 0.0)
-                bg.SetInput("TopLeftGreen", 0.0)
-                bg.SetInput("TopLeftBlue", 0.0)
-                bg.SetInput("TopLeftAlpha", 1.0)
-                mrg = comp.AddTool("Merge")
-                mrg.ConnectInput("Background", bg)
-                mrg.ConnectInput("Foreground", upstream)
-                mout.ConnectInput("Input", mrg)
-            step("background", add_bg)
-            # after splice, the tool feeding MediaOut is now the Merge
-            mrg_list = list((comp.GetToolList(False, "Merge") or {}).values())
-            if mrg_list:
-                upstream = mrg_list[-1]
+            if has("Background"):
+                applied.append("background:exists")
+            else:
+                def add_bg():
+                    bg = comp.AddTool("Background")
+                    bg.SetInput("UseFrameFormatSettings", 1)
+                    bg.SetInput("TopLeftRed", 0.0)
+                    bg.SetInput("TopLeftGreen", 0.0)
+                    bg.SetInput("TopLeftBlue", 0.0)
+                    bg.SetInput("TopLeftAlpha", 1.0)
+                    mrg = comp.AddTool("Merge")
+                    mrg.ConnectInput("Background", bg)
+                    mrg.ConnectInput("Foreground", upstream)
+                    mout.ConnectInput("Input", mrg)
+                step("background", add_bg)
+                # after splice, the tool feeding MediaOut is now the Merge
+                mrg_list = list((comp.GetToolList(False, "Merge") or {}).values())
+                if mrg_list:
+                    upstream = mrg_list[-1]
 
         if args.get("glow", True) and mout is not None and upstream is not None:
-            def add_glow():
-                glow = comp.AddTool("Glow")
-                glow.ConnectInput("Input", upstream)
-                mout.ConnectInput("Input", glow)
-            step("glow", add_glow)
+            if has("Glow"):
+                applied.append("glow:exists")
+            else:
+                def add_glow():
+                    glow = comp.AddTool("Glow")
+                    glow.ConnectInput("Input", upstream)
+                    mout.ConnectInput("Input", glow)
+                step("glow", add_glow)
 
         if args.get("animate", True):
             frames = int(args.get("animate_frames", 30))
