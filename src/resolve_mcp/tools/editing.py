@@ -1,9 +1,66 @@
 """Editing Resolve MCP tools."""
 
+import json as _json
 import os
+import subprocess
+import sys
 
 from . import register
 from ._helpers import *
+
+_FONT_CACHE = None
+
+
+def _load_system_fonts():
+    """Map {family: [English styles]} from the OS font database (macOS).
+
+    Cached for the server's lifetime — the first call shells out to
+    system_profiler (~8s). The App Sandbox on Resolve Lite may deny the
+    exec; that surfaces as a clear ToolError rather than a hang.
+    """
+    global _FONT_CACHE
+    if _FONT_CACHE is not None:
+        return _FONT_CACHE
+    if sys.platform != "darwin":
+        raise ToolError("list_fonts is macOS-only (uses system_profiler).")
+    try:
+        # NOT text=True: Resolve's embedded Python uses an ASCII locale, so
+        # text mode would decode the (often non-ASCII) font names with ascii
+        # and crash. Capture bytes and decode UTF-8 ourselves.
+        proc = subprocess.run(
+            ["/usr/sbin/system_profiler", "-json", "SPFontsDataType"],
+            capture_output=True,
+            timeout=30,
+        )
+    except (PermissionError, OSError) as exc:
+        raise ToolError(
+            "font enumeration is blocked here (the Resolve Lite App Sandbox "
+            f"denies running system_profiler: {type(exc).__name__}). It works "
+            "on the non-sandboxed Studio build. Use a font you know is "
+            "installed (style 'Regular' is safest)."
+        )
+    if proc.returncode != 0:
+        err = proc.stderr.decode("utf-8", "replace")[:160].strip()
+        raise ToolError(f"system_profiler failed (rc={proc.returncode}): {err}")
+    data = _json.loads(proc.stdout.decode("utf-8", "replace")).get(
+        "SPFontsDataType", []
+    )
+    fams = {}
+    for f in data:
+        for t in f.get("typefaces", []):
+            family = t.get("family")
+            if not family:
+                continue
+            # system_profiler localizes 'style' (e.g. Korean '볼드체'); the
+            # English style lives in 'fullname' as "Family Style".
+            full = (t.get("fullname") or "").strip()
+            if full.lower().startswith(family.lower()):
+                style = full[len(family):].strip()
+            else:
+                style = (t.get("style") or "").strip()
+            fams.setdefault(family, set()).add(style or "Regular")
+    _FONT_CACHE = {k: sorted(v) for k, v in sorted(fams.items())}
+    return _FONT_CACHE
 
 
 @register(
@@ -395,9 +452,14 @@ def _hex_to_rgb(s):
         "type": "object",
         "properties": {
             **_ITEM_ADDR,
-            "font": {"type": "string", "default": "Impact",
-                     "description": "Font family (e.g. Impact, Bebas Neue, Cinzel)."},
-            "style": {"type": "string", "default": "Bold"},
+            "font": {"type": "string", "default": "Open Sans",
+                     "description": "Font family. MUST be installed AND have the "
+                     "chosen 'style', or Fusion fails to render the title "
+                     "(e.g. 'Impact' has no Bold). 'Open Sans' Bold is bundled "
+                     "with Fusion and always works."},
+            "style": {"type": "string", "default": "Bold",
+                      "description": "Font style/weight (e.g. Bold, Regular). Must "
+                      "exist for the chosen font. Pass '' to leave unset."},
             "size": {"type": "number", "default": 0.13,
                      "description": "Text+ Size (0..1), ~0.12-0.15 for big titles."},
             "color": {"type": "string", "default": "#FFD700",
@@ -436,10 +498,17 @@ def style_fusion_title(resolve, args):
         except Exception as exc:  # template-specific; skip, don't fail the call
             applied.append(f"{name}:skipped({type(exc).__name__})")
 
+    font = args.get("font", "Open Sans")
+    fstyle = args.get("style", "Bold")
+
+    def set_font():
+        tp.SetInput("Font", font)
+        if fstyle:  # empty -> leave the font's default style untouched
+            tp.SetInput("Style", fstyle)
+
     comp.Lock()
     try:
-        step("font", lambda: (tp.SetInput("Font", args.get("font", "Impact")),
-                              tp.SetInput("Style", args.get("style", "Bold"))))
+        step("font", set_font)
         step("size", lambda: tp.SetInput("Size", args.get("size", 0.13)))
         step("color", lambda: (tp.SetInput("Red1", r), tp.SetInput("Green1", g),
                                tp.SetInput("Blue1", b)))
@@ -497,6 +566,34 @@ def style_fusion_title(resolve, args):
         "color": args.get("color", "#FFD700"),
         "applied": applied,
     }
+
+
+@register(
+    "list_fonts",
+    "List installed font families and their English style/weight names so "
+    "titles get a valid Font + Style (avoids Fusion's 'Could not find font' "
+    "render error — e.g. 'Impact' has only 'Regular', no 'Bold'). macOS only; "
+    "reads the OS font database via system_profiler — first call ~8s, cached "
+    "after. NOTE: on the Resolve Lite App Sandbox this may be blocked (works "
+    "on Studio); it then returns a clear error. Optional 'family' filters to "
+    "families whose name contains it (case-insensitive).",
+    {
+        "type": "object",
+        "properties": {
+            "family": {
+                "type": "string",
+                "description": "Substring filter on family name (case-insensitive).",
+            }
+        },
+        "required": [],
+    },
+)
+def list_fonts(resolve, args):
+    fams = _load_system_fonts()
+    q = (args.get("family") or "").strip().lower()
+    if q:
+        fams = {k: v for k, v in fams.items() if q in k.lower()}
+    return {"ok": True, "count": len(fams), "fonts": fams}
 
 
 @register(

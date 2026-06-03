@@ -16,3 +16,4 @@ Format per entry: **Symptom → Cause → Fix → Commit**.
 | 07 | Resolve API calls off the main thread | [07-thread-safety.md](07-thread-safety.md) |
 | 08 | `export_timeline` fails with a `~` path | [08-export-timeline-expanduser.md](08-export-timeline-expanduser.md) |
 | 09 | Timeline markers: absolute frames, start-frame rejected, clear-all data loss | [09-timeline-marker-frames.md](09-timeline-marker-frames.md) |
+| 10 | subprocess output decodes as ASCII in Resolve's Python (`text=True` crash) | [10-subprocess-ascii-locale.md](10-subprocess-ascii-locale.md) |
