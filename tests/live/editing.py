@@ -44,6 +44,28 @@ def _():
     n = len(call("get_track_items", trackType="video", index=1)["items"])
     need(call("delete_timeline_item", trackType="video", trackIndex=1, itemIndex=n)["ok"])
 
+@test("split_clip")
+def _():
+    goto_scratch(); src_required()
+    items = call("get_track_items", trackType="video", index=1)["items"]
+    need(len(items) >= 1)
+    t = call("get_timeline_item_timing", trackType="video", trackIndex=1, itemIndex=1)
+    start, end = t["start"], t["end"]
+    need(end - start >= 4)
+    mid = start + (end - start) // 2
+    n0 = len(items)
+    r = call("split_clip", trackType="video", trackIndex=1, itemIndex=1, frame=mid)
+    need(len(r["halves"]) == 2)
+    n1 = len(call("get_track_items", trackType="video", index=1)["items"])
+    need(n1 == n0 + 1)
+    # contiguity: halves cover the original range with no gap/overlap.
+    a = call("get_timeline_item_timing", trackType="video", trackIndex=1, itemIndex=1)
+    b = call("get_timeline_item_timing", trackType="video", trackIndex=1, itemIndex=2)
+    need(a["start"] == start); need(b["start"] == a["end"]); need(b["end"] == end)
+    # cleanup: remove the two new halves
+    call("delete_timeline_item", trackType="video", trackIndex=1, itemIndex=2)
+    call("delete_timeline_item", trackType="video", trackIndex=1, itemIndex=1)
+
 def _delete_last_video_item():
     n = len(call("get_track_items", trackType="video", index=1)["items"])
     if n >= 1:

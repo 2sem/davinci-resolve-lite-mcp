@@ -761,6 +761,78 @@ def add_clip_to_timeline(resolve, args):
 
 
 @register(
+    "split_clip",
+    "Blade/razor a timeline clip into two contiguous clips at timeline frame "
+    "'frame'. Address the clip by trackType + trackIndex + itemIndex (1-based). "
+    "MCP-original: Resolve's API has no split/blade, so this deletes the clip "
+    "and re-adds its two halves from the same media-pool source at the exact "
+    "record frames (no gap). LIMITATION: the re-added halves are fresh timeline "
+    "items — clip-level grade / Fusion / transform / retime and linked audio "
+    "are NOT preserved. 'frame' must be strictly inside the clip.",
+    {
+        "type": "object",
+        "properties": {
+            **_ITEM_ADDR,
+            "frame": {
+                "type": "integer",
+                "description": "Timeline frame to split at (strictly inside the clip).",
+            },
+        },
+        "required": ["trackType", "trackIndex", "itemIndex", "frame"],
+    },
+)
+def split_clip(resolve, args):
+    project = _require_project(resolve)
+    tl = _require_timeline(resolve)
+    item = _track_item(resolve, args)
+    frame = args["frame"]
+    t_start, t_end = item.GetStart(), item.GetEnd()
+    if not (t_start < frame < t_end):
+        raise ToolError(
+            f"split frame {frame} must be strictly inside the clip "
+            f"(timeline {t_start}..{t_end})."
+        )
+    mp_item = item.GetMediaPoolItem()
+    if not mp_item:
+        raise ToolError(
+            f"{item.GetName()!r} has no media-pool source (compound/generator/"
+            "title?) — cannot split."
+        )
+    track = item.GetTrackTypeAndIndex() or []
+    ttype = track[0] if track else args["trackType"]
+    tidx = track[1] if len(track) > 1 else args["trackIndex"]
+    src_in, src_end = item.GetSourceStartFrame(), item.GetSourceEndFrame()
+    src_split = src_in + (frame - t_start)
+    media_type = 1 if ttype == "video" else 2
+    name = item.GetName()
+
+    if not tl.DeleteClips([item], False):
+        raise ToolError("DeleteClips failed; clip not split.")
+    mp = project.GetMediaPool()
+    # clipInfo endFrame is EXCLUSIVE (duration = endFrame - startFrame), so the
+    # first half ends AT src_split (not src_split-1) and the second starts there
+    # — contiguous, no dropped frame.
+    halves = [
+        {"mediaPoolItem": mp_item, "startFrame": src_in, "endFrame": src_split,
+         "recordFrame": t_start, "trackIndex": tidx, "mediaType": media_type},
+        {"mediaPoolItem": mp_item, "startFrame": src_split, "endFrame": src_end,
+         "recordFrame": frame, "trackIndex": tidx, "mediaType": media_type},
+    ]
+    added = mp.AppendToTimeline(halves) or []
+    if len(added) < 2:
+        raise ToolError(
+            f"split re-add returned {len(added)} item(s), expected 2 — the "
+            "original was already deleted; undo in Resolve to recover."
+        )
+    return {
+        "ok": True,
+        "split": name,
+        "frame": frame,
+        "halves": [a.GetName() for a in added],
+    }
+
+
+@register(
     "detect_scene_cuts",
     "Detect and apply scene cuts along the current timeline. NOTE: Scene Cut "
     "Detection is a Studio-only feature; on the free edition this opens the "
