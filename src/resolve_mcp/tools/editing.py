@@ -447,7 +447,10 @@ def _hex_to_rgb(s):
     "zoom-in Size keyframe animation. MCP-original tool: composes Fusion "
     "AddTool / ConnectInput / SetInput / BezierSpline. The response reports "
     "which steps applied; steps that fail on a given template are skipped, "
-    "not fatal. Only works on Fusion titles (Text+), not basic titles.",
+    "not fatal. If the font is a known OS font (per list_fonts) but lacks the "
+    "requested style, it errors up front — a bad font otherwise produces an "
+    "uncatchable Fusion render error. Only works on Fusion titles (Text+), not "
+    "basic titles.",
     {
         "type": "object",
         "properties": {
@@ -500,6 +503,27 @@ def style_fusion_title(resolve, args):
 
     font = args.get("font", "Open Sans")
     fstyle = args.get("style", "Bold")
+
+    # Pre-validate the style against the OS font database. A bad combo (e.g.
+    # Impact has no Bold) otherwise produces an UNCATCHABLE Fusion render error
+    # ("Could not find font: Impact: Bold") — the render runs on Fusion's own
+    # thread and never reaches this call. We only validate when the family is
+    # present in the OS DB: Fusion also ships its own bundled fonts (e.g. the
+    # default "Open Sans") which system_profiler does NOT list, so an absent
+    # family is not proof the font is invalid — skip rather than false-reject.
+    # Same if enumeration is unavailable (blocked / non-macOS).
+    try:
+        catalog = _load_system_fonts()
+    except ToolError:
+        catalog = None
+    if catalog is not None and fstyle:
+        styles = catalog.get(font)
+        if styles is not None and fstyle not in styles:
+            raise ToolError(
+                f"font {font!r} has no style {fstyle!r} (available: "
+                f"{', '.join(styles)}). Pass a listed style, or '' for the "
+                "default."
+            )
 
     def set_font():
         tp.SetInput("Font", font)

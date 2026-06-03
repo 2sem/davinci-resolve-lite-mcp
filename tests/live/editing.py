@@ -118,6 +118,18 @@ def _():
     need("glow" in r["applied"]); need("glow:exists" not in r["applied"])
     call("delete_timeline_item", trackType="video", trackIndex=1, itemIndex=n)
 
+@test("style_fusion_title_bad_font")
+def _():
+    # An invalid font+style (Impact has no Bold) must error up front, not
+    # silently produce an uncatchable Fusion render failure.
+    goto_scratch()
+    call("insert_fusion_title", title="Text+", text="GameHelper")
+    n = len(call("get_track_items", trackType="video", index=1)["items"])
+    msg = err("style_fusion_title", trackType="video", trackIndex=1, itemIndex=n,
+              font="Impact", style="Bold", background=False, glow=False, animate=False)
+    need("Impact" in msg and "Bold" in msg)
+    call("delete_timeline_item", trackType="video", trackIndex=1, itemIndex=n)
+
 @test("list_fonts")
 def _():
     try:
