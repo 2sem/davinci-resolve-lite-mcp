@@ -39,12 +39,20 @@ def _load_system_fonts():
             "on the non-sandboxed Studio build. Use a font you know is "
             "installed (style 'Regular' is safest)."
         )
+    except subprocess.TimeoutExpired:
+        raise ToolError(
+            "font enumeration timed out (system_profiler took >30s). Use a "
+            "font you know is installed (style 'Regular' is safest)."
+        )
     if proc.returncode != 0:
         err = proc.stderr.decode("utf-8", "replace")[:160].strip()
         raise ToolError(f"system_profiler failed (rc={proc.returncode}): {err}")
-    data = _json.loads(proc.stdout.decode("utf-8", "replace")).get(
-        "SPFontsDataType", []
-    )
+    try:
+        data = _json.loads(proc.stdout.decode("utf-8", "replace")).get(
+            "SPFontsDataType", []
+        )
+    except (ValueError, AttributeError) as exc:
+        raise ToolError(f"could not parse system_profiler font output: {exc}")
     fams = {}
     for f in data:
         for t in f.get("typefaces", []):

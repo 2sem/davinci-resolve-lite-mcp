@@ -121,7 +121,16 @@ def _():
 @test("style_fusion_title_bad_font")
 def _():
     # An invalid font+style (Impact has no Bold) must error up front, not
-    # silently produce an uncatchable Fusion render failure.
+    # silently produce an uncatchable Fusion render failure. Validation only
+    # works when font enumeration is available AND Impact is an OS font without
+    # a Bold face — otherwise the tool intentionally skips the check, so skip
+    # the test too rather than expect an error it cannot produce.
+    try:
+        styles = call("list_fonts", family="Impact")["fonts"].get("Impact")
+    except AssertionError as e:
+        raise Skip(f"font enumeration unavailable: {str(e)[:60]}")
+    if not styles or "Bold" in styles:
+        raise Skip("Impact not installed, or has a Bold face here")
     goto_scratch()
     call("insert_fusion_title", title="Text+", text="GameHelper")
     n = len(call("get_track_items", trackType="video", index=1)["items"])
