@@ -63,6 +63,7 @@ _TOOL_ORDER = [
     'delete_timeline_item',
     'insert_title',
     'insert_fusion_title',
+    'set_fusion_title_text',
     'insert_generator',
     'get_current_video_item',
     'get_timecode',
