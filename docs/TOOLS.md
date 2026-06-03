@@ -1,6 +1,6 @@
 # Tools reference
 
-150 tools, all exercised live against DaVinci Resolve Lite (or verified on the
+151 tools, all exercised live against DaVinci Resolve Lite (or verified on the
 same code path). Every tool call is logged to the Resolve Console and the
 logfile as a single line:
 `[davinci-mcp] <name> <args> -> ok|error|EXCEPTION (Nms)`.
@@ -59,6 +59,7 @@ logfile as a single line:
 | `delete_timeline_item` | Delete a clip (optional ripple) |
 | `insert_title` / `insert_fusion_title` / `insert_generator` | Insert title/generator at playhead (`insert_fusion_title` takes optional `text`) |
 | `set_fusion_title_text` | Set on-screen text of an existing Fusion title (StyledText) |
+| `style_fusion_title` | Style + animate a Fusion title (font/size/color, Background + Glow nodes, zoom-in keyframes) |
 | `create_compound_clip` / `create_fusion_clip` | Group items into a compound / Fusion clip |
 | `insert_audio_at_playhead` | Insert audio on the current Fairlight track |
 | `get_timeline_item_property` / `set_timeline_item_property` | Transform/crop/zoom/pan/opacity etc. |
@@ -132,6 +133,7 @@ operation. The MCP tool name is original, not a Resolve method name.
 | Tool | Composed Resolve calls |
 |------|------------------------|
 | `set_fusion_title_text` | `GetItemListInTrack` → `GetFusionCompByIndex` → `GetToolList("TextPlus")` → `SetInput("StyledText", …)` |
+| `style_fusion_title` | `GetFusionCompByIndex` → `AddTool("Background"/"Merge"/"Glow")` → `ConnectInput` → `SetInput` + `BezierSpline` keyframes |
 | `insert_fusion_title` (with `text`) | `InsertFusionTitleIntoTimeline` → `GetFusionCompByIndex` → `GetToolList` → `SetInput` |
 
 > Basic `Text` titles cannot have their text set at all — they carry no Fusion
