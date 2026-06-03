@@ -785,8 +785,9 @@ def add_clip_to_timeline(resolve, args):
     "tool. By default it cuts at the PLAYHEAD on the given track (trackType "
     "defaults to 'video', trackIndex to 1), auto-finding the clip under the "
     "playhead — so the usual flow is just set_timecode then split_clip. "
-    "Optional overrides: 'frame' (absolute timeline frame instead of the "
-    "playhead) and 'itemIndex' (target a specific clip instead of the one "
+    "Optional overrides: 'frame' (a 0-based timeline frame — relative to the "
+    "timeline start, the same space as get_timeline_item_timing's start/end — "
+    "instead of the playhead) and 'itemIndex' (target a specific clip instead of the one "
     "under the playhead). MCP-original: Resolve's API has no split/blade, so "
     "this deletes the clip and re-adds its two halves from the same media-pool "
     "source at the exact record frames (no gap). LIMITATION: the re-added "
@@ -799,7 +800,7 @@ def add_clip_to_timeline(resolve, args):
                           "default": "video"},
             "trackIndex": {"type": "integer", "minimum": 1, "default": 1},
             "frame": {"type": "integer",
-                      "description": "Absolute timeline frame to cut at. Default: the playhead."},
+                      "description": "0-based timeline frame to cut at (relative to timeline start, like get_timeline_item_timing start/end). Default: the playhead."},
             "itemIndex": {"type": "integer", "minimum": 1,
                           "description": "1-based clip on the track. Default: the clip under the cut frame."},
         },
