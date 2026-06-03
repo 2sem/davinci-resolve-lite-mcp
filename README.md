@@ -42,7 +42,7 @@ Claude Code ──HTTP JSON-RPC (MCP)──▶  127.0.0.1:8765/mcp
 ## Install
 
 ```bash
-git clone <this-repo>
+git clone https://github.com/2sem/davinci-resolve-lite-mcp.git
 cd davinci-resolve-lite-mcp
 ./install.sh
 ```
