@@ -90,6 +90,32 @@ def _():
     # core text styling must apply; node-graph steps may skip per template.
     for core in ("font", "size", "color"):
         need(core in r["applied"])
+    # idempotent: styling the same clip again must not stack bg/glow nodes.
+    if "background" in r["applied"] or "glow" in r["applied"]:
+        r2 = call("style_fusion_title", trackType="video", trackIndex=1, itemIndex=n,
+                  font="Open Sans", style="Bold", background=True, glow=True, animate=False)
+        if "background" in r["applied"]:
+            need("background:exists" in r2["applied"])
+        if "glow" in r["applied"]:
+            need("glow:exists" in r2["applied"])
+    call("delete_timeline_item", trackType="video", trackIndex=1, itemIndex=n)
+
+@test("style_fusion_title_template_bg")
+def _():
+    # A template that already ships a Background/Glow node must NOT false-trip
+    # the idempotency guard — our styling must still apply on the first call.
+    goto_scratch()
+    try:
+        call("insert_fusion_title", title="Background Reveal", text="GameHelper")
+    except AssertionError:
+        raise Skip("'Background Reveal' template not available")
+    n = len(call("get_track_items", trackType="video", index=1)["items"])
+    r = call("style_fusion_title", trackType="video", trackIndex=1, itemIndex=n,
+             font="Open Sans", style="Bold", background=True, glow=True, animate=False)
+    # first-ever style of this clip: our nodes did not exist yet, so they must
+    # be ADDED (not reported as :exists) despite the template's own Background.
+    need("background" in r["applied"]); need("background:exists" not in r["applied"])
+    need("glow" in r["applied"]); need("glow:exists" not in r["applied"])
     call("delete_timeline_item", trackType="video", trackIndex=1, itemIndex=n)
 
 @test("list_fonts")
