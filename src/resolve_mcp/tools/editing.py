@@ -989,11 +989,32 @@ def cut_range(resolve, args):
     if begin >= end:
         raise ToolError(f"begin ({begin}) must be < end ({end}).")
 
+    # Preflight every clip the cut will touch BEFORE mutating anything, so a
+    # non-bladeable clip can't leave the timeline half-modified (with the first
+    # boundary already split and its grade/Fusion lost): the clips spanning
+    # begin/end must be bladeable, and every downstream clip must be shiftable —
+    # all need a media-pool source.
+    pre = tl.GetItemListInTrack(ttype, tidx) or []
+    for f in (begin, end):
+        span = next((it for it in pre if it.GetStart() < f < it.GetEnd()), None)
+        if span is not None and not span.GetMediaPoolItem():
+            raise ToolError(
+                f"cannot cut: the clip spanning frame {f} ({span.GetName()!r}) "
+                "has no media-pool source (title/generator/compound/nested) and "
+                "cannot be bladed."
+            )
+    for it in pre:
+        if it.GetStart() >= end and not it.GetMediaPoolItem():
+            raise ToolError(
+                f"cannot cut: downstream clip {it.GetName()!r} (after frame "
+                f"{end}) has no media-pool source and cannot be shifted to close "
+                "the gap."
+            )
+
     # Blade at each boundary — but only where a clip STRICTLY spans the frame.
     # A frame that already sits on an edit point, on the track tail, or in a
     # gap has no spanning clip and needs no split (e.g. end == last clip's end
-    # when removing the final clip). Checking the condition directly avoids
-    # matching split_clip's error strings.
+    # when removing the final clip).
     for f in (begin, end):
         items = tl.GetItemListInTrack(ttype, tidx) or []
         if any(it.GetStart() < f < it.GetEnd() for it in items):
