@@ -1022,8 +1022,18 @@ def _apply_xform(comp, xf, item, args):
                 "readback": [xf.GetInput(inp, start), xf.GetInput(inp, start + span)],
             }
         elif v is not None:
+            # Detach any BezierSpline from a previous animate call first —
+            # otherwise the spline keeps driving the input and the clip stays
+            # animated even though we report a static value. SetInput(name, None)
+            # removes the modifier; then set the scalar.
+            xf.SetInput(inp, None)
             xf.SetInput(inp, v)
-            changed[key] = {"value": v, "readback": xf.GetInput(inp)}
+            changed[key] = {
+                "value": v,
+                "readback": xf.GetInput(inp),
+                # equal at both times == truly static (animation cleared).
+                "static_check": [xf.GetInput(inp, start), xf.GetInput(inp, start + span)],
+            }
     px, py = args.get("pan_x"), args.get("pan_y")
     if px is not None or py is not None:
         cur = xf.GetInput("Center") or {1: 0.5, 2: 0.5}

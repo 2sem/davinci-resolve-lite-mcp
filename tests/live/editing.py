@@ -142,6 +142,9 @@ def _():
     need(a["readback"] == [0.0, 20.0])
     p = call("edit_clip_fusion_transform", **A, pan_x=0.65)["changed"]["pan"]
     need(p["x"] == 0.65)
+    # animate -> static must clear the spline (no lingering animation).
+    s = call("edit_clip_fusion_transform", **A, zoom=1.3)["changed"]["zoom"]
+    need(s["static_check"] == [1.3, 1.3])
     err("insert_clip_fusion_transform", **A)            # already exists -> error
     need(call("remove_clip_fusion_transform", **A)["removed"] == "MCPXform")
     err("edit_clip_fusion_transform", **A, zoom=1.2)    # gone -> error
