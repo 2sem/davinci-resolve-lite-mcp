@@ -986,6 +986,8 @@ def cut_range(resolve, args):
     ttype = args.get("trackType", "video")
     tidx = args.get("trackIndex", 1)
     begin, end = args["begin"], args["end"]
+    if begin < 0:
+        raise ToolError(f"begin ({begin}) must be >= 0.")
     if begin >= end:
         raise ToolError(f"begin ({begin}) must be < end ({end}).")
 
