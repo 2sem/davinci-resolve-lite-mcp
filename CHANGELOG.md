@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.14.0
+
+### Added
+- `split_clip` — blade/razor a timeline clip into two contiguous clips, at the
+  playhead by default (like the razor tool): `set_timecode` then `split_clip`
+  auto-finds the clip under the playhead (trackType defaults to `video`,
+  trackIndex to `1`); optional `frame` (0-based) and `itemIndex` overrides.
+  Resolve has no native split, so it deletes the clip and re-adds its two
+  halves from the same media-pool source at the exact record frames (in place,
+  no gap). To CUT a range: split at both ends, then
+  `delete_timeline_item(ripple=true)` on the middle. 152 → 153 tools.
+  LIMITATIONS: only media-backed clips (titles/generators/compounds/nested have
+  no source); re-added halves lose clip-level grade/Fusion/transform/retime and
+  linked audio.
+
+### Fixed
+- Playhead frame lookup handles the 0-based item-frame vs absolute-timecode
+  mismatch (`fallbacks/11`) and drop-frame timecode (29.97/59.94).
+
 ## 0.13.1
 
 ### Added
