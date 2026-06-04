@@ -75,12 +75,25 @@ def goto_scratch():
             break
     else:
         raise AssertionError("scratch timeline missing")
-    # Ensure at least one video item exists on V1 (earlier tests may empty it;
-    # track tests can move the target track, so pin trackIndex=1, video-only).
-    items = call("get_track_items", trackType="video", index=1)["items"]
-    if not items and CTX.get("src"):
+    # Deterministic reset so every test starts identical: clear video/audio
+    # tracks, then re-add ONE linked clip on V1 (no mediaType -> video+audio,
+    # linked). Without this, linked split/ripple ops leak audio-track state
+    # between tests. Deleting a linked item can drop its pair, so re-query each
+    # pass and ignore stale indices.
+    for tt in ("video", "audio"):
+        for idx in (1, 2):
+            while True:
+                items = call("get_track_items", trackType=tt, index=idx)["items"]
+                if not items:
+                    break
+                try:
+                    call("delete_timeline_item", trackType=tt, trackIndex=idx,
+                         itemIndex=len(items))
+                except AssertionError:
+                    break
+    if CTX.get("src"):
         call("add_clip_to_timeline", name=CTX["src"], startFrame=0, endFrame=60,
-             recordFrame=0, trackIndex=1, mediaType=1)
+             recordFrame=0, trackIndex=1)
 
 
 def color_grab():

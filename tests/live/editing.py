@@ -54,8 +54,8 @@ def _():
     need(end - start >= 4)
     mid = start + (end - start) // 2
     n0 = len(items)
-    # explicit frame + itemIndex override
-    r = call("split_clip", trackType="video", trackIndex=1, itemIndex=1, frame=mid)
+    # explicit frame + itemIndex override; linked=False to test this track only
+    r = call("split_clip", trackType="video", trackIndex=1, itemIndex=1, frame=mid, linked=False)
     need(len(r["halves"]) == 2); need(r["frame"] == mid)
     n1 = len(call("get_track_items", trackType="video", index=1)["items"])
     need(n1 == n0 + 1)
@@ -81,10 +81,34 @@ def _():
     mm, rem = divmod(rem, 60 * fps)
     ss, ff = divmod(rem, fps)
     call("set_timecode", timecode=f"{hh:02d}:{mm:02d}:{ss:02d}:{ff:02d}")
-    r = call("split_clip", trackType="video", trackIndex=1)  # playhead + auto-find
+    r = call("split_clip", trackType="video", trackIndex=1, linked=False)  # playhead + auto-find
     need(len(r["halves"]) == 2); need(r["frame"] == mid)
     call("delete_timeline_item", trackType="video", trackIndex=1, itemIndex=2)
     call("delete_timeline_item", trackType="video", trackIndex=1, itemIndex=1)
+
+@test("split_clip_linked")
+def _():
+    # Default linked=true: blading a clip with linked audio splits BOTH tracks
+    # at the same frame and re-links the halves.
+    goto_scratch(); src_required()
+    v0 = call("get_track_items", trackType="video", index=1)["items"]
+    a0 = call("get_track_items", trackType="audio", index=1)["items"]
+    if not a0:
+        raise Skip("scratch clip has no linked audio on A1")
+    t = call("get_timeline_item_timing", trackType="video", trackIndex=1, itemIndex=1)
+    mid = t["start"] + (t["end"] - t["start"]) // 2
+    r = call("split_clip", trackType="video", trackIndex=1, frame=mid)  # linked default
+    need(r["split_items"] >= 2)   # video + its linked audio
+    need(r["relinked"])
+    v1 = call("get_track_items", trackType="video", index=1)["items"]
+    a1 = call("get_track_items", trackType="audio", index=1)["items"]
+    need(len(v1) == len(v0) + 1)  # video bladed
+    need(len(a1) == len(a0) + 1)  # linked audio bladed too
+    # cleanup: drop the new halves on both tracks
+    for tt in ("video", "audio"):
+        n = len(call("get_track_items", trackType=tt, index=1)["items"])
+        for i in range(n, 0, -1):
+            call("delete_timeline_item", trackType=tt, trackIndex=1, itemIndex=i)
 
 @test("cut_range")
 def _():
