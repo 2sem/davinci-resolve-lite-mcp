@@ -57,7 +57,7 @@ logfile as a single line:
 | `add_clip_to_timeline` | Place a clip with source in/out, target track, record frame |
 | `append_clips_to_timeline` | Append whole clips |
 | `delete_timeline_item` | Delete a clip (optional ripple — closes the gap) |
-| `split_clip` | Blade/razor a clip into two contiguous clips at a frame |
+| `split_clip` | Blade/razor a clip into two contiguous clips at a frame (also splits linked audio/video + re-links, by default) |
 | `cut_range` | Remove a frame range [begin,end) and close the gap (blade + manual ripple) |
 | `insert_clip_fusion_transform` / `edit_clip_fusion_transform` / `remove_clip_fusion_transform` | Animate a clip's zoom/pan/rotate via a Fusion Transform (keyframed; the Edit-page transform can't be keyframed via the API) |
 | `insert_title` / `insert_fusion_title` / `insert_generator` | Insert title/generator at playhead (`insert_fusion_title` takes optional `text`) |

@@ -851,6 +851,35 @@ def add_clip_to_timeline(resolve, args):
     return {"appended": len(added), "name": item.GetName()}
 
 
+def _split_specs(item, frame):
+    """Return (left, right) clipInfo halves for splitting one item at timeline
+    `frame`, or None if `frame` isn't strictly inside it. Raises if the item has
+    no media-pool source. The out-point comes from the TIMELINE duration, not
+    GetSourceEndFrame() (whose inclusive/exclusive convention varies and dropped
+    the last frame on real clips); endFrame is exclusive."""
+    t_start, t_end = item.GetStart(), item.GetEnd()
+    if not (t_start < frame < t_end):
+        return None
+    mp_item = item.GetMediaPoolItem()
+    if not mp_item:
+        raise ToolError(
+            f"{item.GetName()!r} has no media-pool source (compound/generator/"
+            "title?) — cannot split."
+        )
+    track = item.GetTrackTypeAndIndex() or []
+    tidx = track[1] if len(track) > 1 else 1
+    mt = 1 if (track and track[0] == "video") else 2
+    src_in = item.GetSourceStartFrame()
+    src_split = src_in + (frame - t_start)
+    src_out = src_in + (t_end - t_start)
+    return (
+        {"mediaPoolItem": mp_item, "startFrame": src_in, "endFrame": src_split,
+         "recordFrame": t_start, "trackIndex": tidx, "mediaType": mt},
+        {"mediaPoolItem": mp_item, "startFrame": src_split, "endFrame": src_out,
+         "recordFrame": frame, "trackIndex": tidx, "mediaType": mt},
+    )
+
+
 @register(
     "split_clip",
     "Blade/razor a timeline clip into two contiguous clips — like the razor "
@@ -859,18 +888,18 @@ def add_clip_to_timeline(resolve, args):
     "playhead — so the usual flow is just set_timecode then split_clip. "
     "Optional overrides: 'frame' (a 0-based timeline frame — relative to the "
     "timeline start, the same space as get_timeline_item_timing's start/end — "
-    "instead of the playhead) and 'itemIndex' (target a specific clip instead of the one "
-    "under the playhead). MCP-original: Resolve's API has no split/blade, so "
-    "this deletes the clip and re-adds its two halves from the same media-pool "
-    "source at the exact record frames (no gap). TO CUT (remove a range): "
-    "split_clip at the start and end of the range, then delete the middle clip "
-    "with delete_timeline_item(ripple=true) — ripple closes the gap. That "
-    "split-then-ripple-delete is the cut/trim workflow; there is no separate "
-    "cut tool. LIMITATIONS: only works on clips with a media-pool source — "
-    "titles, generators, compound clips and nested timelines have none and "
-    "cannot be bladed; and the re-added halves are fresh timeline items, so "
-    "clip-level grade / Fusion / transform / retime and linked audio are NOT "
-    "preserved.",
+    "instead of the playhead) and 'itemIndex' (target a specific clip instead of "
+    "the one under the playhead). By default ('linked' true) it also splits the "
+    "clip's LINKED audio/video at the same frame and re-links the halves (like "
+    "the UI razor on a linked clip); set linked=false to split only this track. "
+    "MCP-original: Resolve's API has no split/blade, so this deletes each clip "
+    "and re-adds its two halves from the same media-pool source at the exact "
+    "record frames (no gap). TO CUT (remove a range): split_clip at the start "
+    "and end, then delete the middle with delete_timeline_item(ripple=true). "
+    "LIMITATIONS: only clips with a media-pool source (titles/generators/"
+    "compounds/nested cannot be bladed); the re-added halves are fresh items, so "
+    "clip-level grade / Fusion / transform / retime are NOT preserved (linkage "
+    "IS restored when linked=true).",
     {
         "type": "object",
         "properties": {
@@ -881,6 +910,8 @@ def add_clip_to_timeline(resolve, args):
                       "description": "0-based timeline frame to cut at (relative to timeline start, like get_timeline_item_timing start/end). Default: the playhead."},
             "itemIndex": {"type": "integer", "minimum": 1,
                           "description": "1-based clip on the track. Default: the clip under the cut frame."},
+            "linked": {"type": "boolean", "default": True,
+                       "description": "Also split linked audio/video at the same frame and re-link the halves. false = this track only."},
         },
         "required": [],
     },
@@ -890,6 +921,7 @@ def split_clip(resolve, args):
     tl = _require_timeline(resolve)
     ttype = args.get("trackType", "video")
     tidx = args.get("trackIndex", 1)
+    linked = args.get("linked", True)
     frame = args.get("frame")
     if frame is None:
         frame = _playhead_frame(tl, project)
@@ -907,57 +939,55 @@ def split_clip(resolve, args):
                 f"no clip under frame {frame} on {ttype}{tidx} — move the "
                 "playhead onto a clip, or pass 'frame'/'itemIndex'."
             )
-    t_start, t_end = item.GetStart(), item.GetEnd()
-    if not (t_start < frame < t_end):
+    if not (item.GetStart() < frame < item.GetEnd()):
         raise ToolError(
             f"split frame {frame} must be strictly inside the clip "
-            f"(timeline {t_start}..{t_end})."
+            f"(timeline {item.GetStart()}..{item.GetEnd()})."
         )
-    mp_item = item.GetMediaPoolItem()
-    if not mp_item:
+    if not item.GetMediaPoolItem():
         raise ToolError(
             f"{item.GetName()!r} has no media-pool source (compound/generator/"
             "title?) — cannot split."
         )
-    track = item.GetTrackTypeAndIndex() or []
-    if track:
-        ttype = track[0]
-        if len(track) > 1:
-            tidx = track[1]
-    src_in = item.GetSourceStartFrame()
-    src_split = src_in + (frame - t_start)
-    # Derive the out-point from the TIMELINE duration, not GetSourceEndFrame():
-    # that method's inclusive/exclusive convention varies (full media vs a clip
-    # added with an explicit endFrame), which dropped the last frame on real
-    # clips. endFrame is exclusive, so src_out = src_in + total duration keeps
-    # both halves exact and the cut frame-accurate.
-    src_out = src_in + (t_end - t_start)
-    media_type = 1 if ttype == "video" else 2
     name = item.GetName()
 
-    if not tl.DeleteClips([item], False):
+    # The group to blade: the target + (if linked) its linked items that also
+    # span the cut frame (its synced audio/video).
+    group = [item]
+    if linked:
+        for li in (item.GetLinkedItems() or []):
+            if li.GetStart() < frame < li.GetEnd() and li.GetMediaPoolItem():
+                group.append(li)
+
+    specs = [s for s in (_split_specs(it, frame) for it in group) if s]
+    if not tl.DeleteClips(list(group), False):
         raise ToolError("DeleteClips failed; clip not split.")
     mp = project.GetMediaPool()
-    # clipInfo endFrame is EXCLUSIVE (duration = endFrame - startFrame), so the
-    # first half ends AT src_split (not src_split-1) and the second starts there
-    # — contiguous, no dropped frame.
-    halves = [
-        {"mediaPoolItem": mp_item, "startFrame": src_in, "endFrame": src_split,
-         "recordFrame": t_start, "trackIndex": tidx, "mediaType": media_type},
-        {"mediaPoolItem": mp_item, "startFrame": src_split, "endFrame": src_out,
-         "recordFrame": frame, "trackIndex": tidx, "mediaType": media_type},
-    ]
-    added = mp.AppendToTimeline(halves) or []
-    if len(added) < 2:
+    clipinfos = []
+    for left, right in specs:
+        clipinfos.append(left)
+        clipinfos.append(right)
+    added = mp.AppendToTimeline(clipinfos) or []
+    if len(added) < 2 * len(specs):
         raise ToolError(
-            f"split re-add returned {len(added)} item(s), expected 2 — the "
-            "original was already deleted; undo in Resolve to recover."
+            f"split re-add returned {len(added)}/{2 * len(specs)} items — the "
+            "originals were already deleted; undo in Resolve to recover."
         )
+    # re-add order matches clipinfos: [L0, R0, L1, R1, ...] -> link the lefts
+    # together and the rights together to restore the A/V link.
+    lefts, rights = added[0::2], added[1::2]
+    relinked = False
+    if linked and len(lefts) > 1:
+        tl.SetClipsLinked(lefts, True)
+        tl.SetClipsLinked(rights, True)
+        relinked = True
     return {
         "ok": True,
         "split": name,
         "frame": frame,
         "halves": [a.GetName() for a in added],
+        "split_items": len(specs),
+        "relinked": relinked,
     }
 
 
@@ -1247,7 +1277,10 @@ def cut_range(resolve, args):
     for f in (begin, end):
         items = tl.GetItemListInTrack(ttype, tidx) or []
         if any(it.GetStart() < f < it.GetEnd() for it in items):
-            split_clip(resolve, {"trackType": ttype, "trackIndex": tidx, "frame": f})
+            # linked=False: cut_range ripples a single track; let it manage
+            # only this track's clips, not drag linked audio into the blade.
+            split_clip(resolve, {"trackType": ttype, "trackIndex": tidx,
+                                 "frame": f, "linked": False})
 
     items = tl.GetItemListInTrack(ttype, tidx) or []
     to_remove = [it for it in items if begin <= it.GetStart() and it.GetEnd() <= end]
