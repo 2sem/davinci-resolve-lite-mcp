@@ -116,6 +116,7 @@ def _ripple_remove(tl, project, ttype, tidx, removing, rstart, rend):
     items = tl.GetItemListInTrack(ttype, tidx) or []
     downstream = [it for it in items if it.GetStart() >= rend]
     specs = []
+    names = [it.GetName() for it in downstream]  # capture before deleting
     for it in downstream:
         mp = it.GetMediaPoolItem()
         if not mp:
@@ -124,10 +125,13 @@ def _ripple_remove(tl, project, ttype, tidx, removing, rstart, rend):
                 "has no media-pool source (title/generator/compound/nested) and "
                 "cannot be shifted. Remove without ripple, or move it first."
             )
+        src_in = it.GetSourceStartFrame()
         specs.append({
             "mediaPoolItem": mp,
-            "startFrame": it.GetSourceStartFrame(),
-            "endFrame": it.GetSourceEndFrame(),
+            "startFrame": src_in,
+            # exclusive out from duration (GetSourceEndFrame's convention varies
+            # and drops a frame on real clips — see split_clip).
+            "endFrame": src_in + (it.GetEnd() - it.GetStart()),
             "recordFrame": it.GetStart() - shift,
             "trackIndex": tidx,
             "mediaType": media_type,
@@ -141,7 +145,7 @@ def _ripple_remove(tl, project, ttype, tidx, removing, rstart, rend):
                 f"ripple re-add placed {len(added)}/{len(specs)} downstream "
                 "clips — timeline may be inconsistent; undo in Resolve."
             )
-    return [it.GetName() for it in downstream]
+    return names
 
 
 @register(
@@ -912,8 +916,14 @@ def split_clip(resolve, args):
         ttype = track[0]
         if len(track) > 1:
             tidx = track[1]
-    src_in, src_end = item.GetSourceStartFrame(), item.GetSourceEndFrame()
+    src_in = item.GetSourceStartFrame()
     src_split = src_in + (frame - t_start)
+    # Derive the out-point from the TIMELINE duration, not GetSourceEndFrame():
+    # that method's inclusive/exclusive convention varies (full media vs a clip
+    # added with an explicit endFrame), which dropped the last frame on real
+    # clips. endFrame is exclusive, so src_out = src_in + total duration keeps
+    # both halves exact and the cut frame-accurate.
+    src_out = src_in + (t_end - t_start)
     media_type = 1 if ttype == "video" else 2
     name = item.GetName()
 
@@ -926,7 +936,7 @@ def split_clip(resolve, args):
     halves = [
         {"mediaPoolItem": mp_item, "startFrame": src_in, "endFrame": src_split,
          "recordFrame": t_start, "trackIndex": tidx, "mediaType": media_type},
-        {"mediaPoolItem": mp_item, "startFrame": src_split, "endFrame": src_end,
+        {"mediaPoolItem": mp_item, "startFrame": src_split, "endFrame": src_out,
          "recordFrame": frame, "trackIndex": tidx, "mediaType": media_type},
     ]
     added = mp.AppendToTimeline(halves) or []
