@@ -92,6 +92,7 @@ _TOOL_ORDER = [
     'delete_pool_clip_marker',
     'append_clips_to_timeline',
     'add_clip_to_timeline',
+    'split_clip',
     'create_timeline',
     'create_timeline_from_clips',
     'delete_timeline',

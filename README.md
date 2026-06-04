@@ -23,6 +23,21 @@ Claude Code ──HTTP JSON-RPC (MCP)──▶  127.0.0.1:8765/mcp
                               global `resolve` object → Resolve API
 ```
 
+## Demo
+
+Ask Claude in plain language; it drives Resolve through the tools. For example,
+*"add an opening title that reveals **GameHelper**"* →
+[`insert_fusion_title`](docs/TOOLS.md) + [`style_fusion_title`](docs/TOOLS.md)
+build a Text+ title and edit its Fusion node graph (gold font, glow, a
+zoom-in keyframe reveal):
+
+> 📹 **Screen recording coming soon.** To add it: drop a GIF at
+> `docs/images/demo.gif` and replace this line with
+> `![Animated "GameHelper" opening title built by Claude in DaVinci Resolve](docs/images/demo.gif)`.
+
+See the [tools reference](docs/TOOLS.md) for the full 153-tool surface —
+editing, color, render, media pool, and Fusion title styling.
+
 ## Why this works on the free edition
 
 * Free Resolve permits scripts run from its **Scripts menu** (only *external*
@@ -133,7 +148,7 @@ endpoint, scanning the same port range the server uses on startup.
 
 ## Tools
 
-**152 tools**, all exercised live against DaVinci Resolve Lite, spanning the
+**153 tools**, all exercised live against DaVinci Resolve Lite, spanning the
 full pipeline:
 
 - **Status & navigation** — page switching, project/timeline settings

@@ -71,6 +71,34 @@ def _load_system_fonts():
     return _FONT_CACHE
 
 
+def _playhead_frame(tl, project):
+    """Current playhead position as a 0-based timeline frame.
+
+    Timecode and GetStartFrame() are ABSOLUTE (include the start-timecode
+    offset, e.g. 01:00:00:00 = 108000), but item.GetStart()/GetEnd() are
+    0-based (relative to the timeline start). Subtract the start frame so the
+    result is in the same space as the item bounds.
+
+    Drop-frame timecode ('hh:mm:ss;ff', 29.97/59.94) labels skip frame numbers
+    each minute except every 10th, so a plain parse over-counts; apply the
+    drop-frame correction when ';' is present.
+    """
+    tc = tl.GetCurrentTimecode() or "00:00:00:00"
+    fps = int(round(float(project.GetSetting("timelineFrameRate") or 24)))
+    drop = ";" in tc
+    parts = tc.replace(";", ":").split(":")
+    if len(parts) != 4 or not all(p.isdigit() for p in parts):
+        raise ToolError(f"could not parse current timecode {tc!r}.")
+    hh, mm, ss, ff = (int(p) for p in parts)
+    abs_frame = ((hh * 60 + mm) * 60 + ss) * fps + ff
+    if drop:
+        # 2 dropped frames/min at 29.97, 4 at 59.94; none on every 10th minute.
+        drop_per_min = round(fps * 0.066666)
+        total_minutes = hh * 60 + mm
+        abs_frame -= drop_per_min * (total_minutes - total_minutes // 10)
+    return abs_frame - (tl.GetStartFrame() or 0)
+
+
 @register(
     "get_timeline_item_property",
     "Read transform/crop/composite properties of a timeline clip. Address it "
@@ -758,6 +786,110 @@ def add_clip_to_timeline(resolve, args):
             "the source in/out range is valid)."
         )
     return {"appended": len(added), "name": item.GetName()}
+
+
+@register(
+    "split_clip",
+    "Blade/razor a timeline clip into two contiguous clips — like the razor "
+    "tool. By default it cuts at the PLAYHEAD on the given track (trackType "
+    "defaults to 'video', trackIndex to 1), auto-finding the clip under the "
+    "playhead — so the usual flow is just set_timecode then split_clip. "
+    "Optional overrides: 'frame' (a 0-based timeline frame — relative to the "
+    "timeline start, the same space as get_timeline_item_timing's start/end — "
+    "instead of the playhead) and 'itemIndex' (target a specific clip instead of the one "
+    "under the playhead). MCP-original: Resolve's API has no split/blade, so "
+    "this deletes the clip and re-adds its two halves from the same media-pool "
+    "source at the exact record frames (no gap). TO CUT (remove a range): "
+    "split_clip at the start and end of the range, then delete the middle clip "
+    "with delete_timeline_item(ripple=true) — ripple closes the gap. That "
+    "split-then-ripple-delete is the cut/trim workflow; there is no separate "
+    "cut tool. LIMITATIONS: only works on clips with a media-pool source — "
+    "titles, generators, compound clips and nested timelines have none and "
+    "cannot be bladed; and the re-added halves are fresh timeline items, so "
+    "clip-level grade / Fusion / transform / retime and linked audio are NOT "
+    "preserved.",
+    {
+        "type": "object",
+        "properties": {
+            "trackType": {"type": "string", "enum": ["video", "audio", "subtitle"],
+                          "default": "video"},
+            "trackIndex": {"type": "integer", "minimum": 1, "default": 1},
+            "frame": {"type": "integer",
+                      "description": "0-based timeline frame to cut at (relative to timeline start, like get_timeline_item_timing start/end). Default: the playhead."},
+            "itemIndex": {"type": "integer", "minimum": 1,
+                          "description": "1-based clip on the track. Default: the clip under the cut frame."},
+        },
+        "required": [],
+    },
+)
+def split_clip(resolve, args):
+    project = _require_project(resolve)
+    tl = _require_timeline(resolve)
+    ttype = args.get("trackType", "video")
+    tidx = args.get("trackIndex", 1)
+    frame = args.get("frame")
+    if frame is None:
+        frame = _playhead_frame(tl, project)
+
+    items = tl.GetItemListInTrack(ttype, tidx) or []
+    if args.get("itemIndex") is not None:
+        ii = args["itemIndex"]
+        if ii < 1 or ii > len(items):
+            raise ToolError(f"no item #{ii} on {ttype}{tidx} ({len(items)} item(s)).")
+        item = items[ii - 1]
+    else:
+        item = next((it for it in items if it.GetStart() <= frame < it.GetEnd()), None)
+        if item is None:
+            raise ToolError(
+                f"no clip under frame {frame} on {ttype}{tidx} — move the "
+                "playhead onto a clip, or pass 'frame'/'itemIndex'."
+            )
+    t_start, t_end = item.GetStart(), item.GetEnd()
+    if not (t_start < frame < t_end):
+        raise ToolError(
+            f"split frame {frame} must be strictly inside the clip "
+            f"(timeline {t_start}..{t_end})."
+        )
+    mp_item = item.GetMediaPoolItem()
+    if not mp_item:
+        raise ToolError(
+            f"{item.GetName()!r} has no media-pool source (compound/generator/"
+            "title?) — cannot split."
+        )
+    track = item.GetTrackTypeAndIndex() or []
+    if track:
+        ttype = track[0]
+        if len(track) > 1:
+            tidx = track[1]
+    src_in, src_end = item.GetSourceStartFrame(), item.GetSourceEndFrame()
+    src_split = src_in + (frame - t_start)
+    media_type = 1 if ttype == "video" else 2
+    name = item.GetName()
+
+    if not tl.DeleteClips([item], False):
+        raise ToolError("DeleteClips failed; clip not split.")
+    mp = project.GetMediaPool()
+    # clipInfo endFrame is EXCLUSIVE (duration = endFrame - startFrame), so the
+    # first half ends AT src_split (not src_split-1) and the second starts there
+    # — contiguous, no dropped frame.
+    halves = [
+        {"mediaPoolItem": mp_item, "startFrame": src_in, "endFrame": src_split,
+         "recordFrame": t_start, "trackIndex": tidx, "mediaType": media_type},
+        {"mediaPoolItem": mp_item, "startFrame": src_split, "endFrame": src_end,
+         "recordFrame": frame, "trackIndex": tidx, "mediaType": media_type},
+    ]
+    added = mp.AppendToTimeline(halves) or []
+    if len(added) < 2:
+        raise ToolError(
+            f"split re-add returned {len(added)} item(s), expected 2 — the "
+            "original was already deleted; undo in Resolve to recover."
+        )
+    return {
+        "ok": True,
+        "split": name,
+        "frame": frame,
+        "halves": [a.GetName() for a in added],
+    }
 
 
 @register(

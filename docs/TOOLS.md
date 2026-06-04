@@ -1,6 +1,6 @@
 # Tools reference
 
-152 tools, all exercised live against DaVinci Resolve Lite (or verified on the
+153 tools, all exercised live against DaVinci Resolve Lite (or verified on the
 same code path). Every tool call is logged to the Resolve Console and the
 logfile as a single line:
 `[davinci-mcp] <name> <args> -> ok|error|EXCEPTION (Nms)`.
@@ -57,6 +57,7 @@ logfile as a single line:
 | `add_clip_to_timeline` | Place a clip with source in/out, target track, record frame |
 | `append_clips_to_timeline` | Append whole clips |
 | `delete_timeline_item` | Delete a clip (optional ripple) |
+| `split_clip` | Blade/razor a clip into two contiguous clips at a frame |
 | `insert_title` / `insert_fusion_title` / `insert_generator` | Insert title/generator at playhead (`insert_fusion_title` takes optional `text`) |
 | `set_fusion_title_text` | Set on-screen text of an existing Fusion title (StyledText) |
 | `style_fusion_title` | Style + animate a Fusion title (font/size/color, Background + Glow nodes, zoom-in keyframes) |
@@ -137,6 +138,7 @@ operation. The MCP tool name is original, not a Resolve method name.
 | `style_fusion_title` | `GetFusionCompByIndex` → `AddTool("Background"/"Merge"/"Glow")` → `ConnectInput` → `SetInput` + `BezierSpline` keyframes |
 | `list_fonts` | no Resolve/Fusion font API exists → reads the OS font database (`system_profiler SPFontsDataType`), derives English styles from `fullname` |
 | `insert_fusion_title` (with `text`) | `InsertFusionTitleIntoTimeline` → `GetFusionCompByIndex` → `GetToolList` → `SetInput` |
+| `split_clip` | no blade/razor API exists → `DeleteClips` the item, then `AppendToTimeline` two clipInfo halves from the same source at exact record frames (loses the new half's grade/Fusion) |
 
 > Basic `Text` titles cannot have their text set at all — they carry no Fusion
 > composition, and Resolve exposes no text property for them. Use a Fusion
