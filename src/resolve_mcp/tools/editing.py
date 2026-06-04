@@ -799,9 +799,15 @@ def add_clip_to_timeline(resolve, args):
     "instead of the playhead) and 'itemIndex' (target a specific clip instead of the one "
     "under the playhead). MCP-original: Resolve's API has no split/blade, so "
     "this deletes the clip and re-adds its two halves from the same media-pool "
-    "source at the exact record frames (no gap). LIMITATION: the re-added "
-    "halves are fresh timeline items — clip-level grade / Fusion / transform / "
-    "retime and linked audio are NOT preserved.",
+    "source at the exact record frames (no gap). TO CUT (remove a range): "
+    "split_clip at the start and end of the range, then delete the middle clip "
+    "with delete_timeline_item(ripple=true) — ripple closes the gap. That "
+    "split-then-ripple-delete is the cut/trim workflow; there is no separate "
+    "cut tool. LIMITATIONS: only works on clips with a media-pool source — "
+    "titles, generators, compound clips and nested timelines have none and "
+    "cannot be bladed; and the re-added halves are fresh timeline items, so "
+    "clip-level grade / Fusion / transform / retime and linked audio are NOT "
+    "preserved.",
     {
         "type": "object",
         "properties": {
