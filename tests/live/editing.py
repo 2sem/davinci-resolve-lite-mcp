@@ -128,6 +128,28 @@ def _():
     for i in range(len(items), 0, -1):
         call("delete_timeline_item", trackType="video", trackIndex=1, itemIndex=i)
 
+@test("clip_fusion_transform")
+def _():
+    # insert -> edit (animated zoom + angle, static pan) -> remove, with
+    # keyframe read-backs and CRUD-guard checks.
+    goto_scratch(); src_required()
+    A = dict(trackType="video", trackIndex=1, itemIndex=1)
+    r = call("insert_clip_fusion_transform", **A)
+    need(r["inserted"]); need(r["node"] == "MCPXform")
+    z = call("edit_clip_fusion_transform", **A, zoom_from=1.0, zoom_to=1.6, frames=20)["changed"]["zoom"]
+    need(z["readback"] == [1.0, 1.6])  # spline really took
+    a = call("edit_clip_fusion_transform", **A, angle_from=0, angle_to=20, frames=20)["changed"]["angle"]
+    need(a["readback"] == [0.0, 20.0])
+    p = call("edit_clip_fusion_transform", **A, pan_x=0.65)["changed"]["pan"]
+    need(p["x"] == 0.65)
+    # animate -> static must clear the spline (no lingering animation).
+    s = call("edit_clip_fusion_transform", **A, zoom=1.3)["changed"]["zoom"]
+    need(s["static_check"] == [1.3, 1.3])
+    err("insert_clip_fusion_transform", **A)            # already exists -> error
+    need(call("remove_clip_fusion_transform", **A)["removed"] == "MCPXform")
+    err("edit_clip_fusion_transform", **A, zoom=1.2)    # gone -> error
+    _delete_last_video_item()
+
 def _delete_last_video_item():
     n = len(call("get_track_items", trackType="video", index=1)["items"])
     if n >= 1:
