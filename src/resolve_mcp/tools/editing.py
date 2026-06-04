@@ -989,15 +989,15 @@ def cut_range(resolve, args):
     if begin >= end:
         raise ToolError(f"begin ({begin}) must be < end ({end}).")
 
-    # Blade at each boundary. If a frame already sits on an edit point,
-    # split_clip rejects it as "strictly inside" — that just means the cut
-    # there already exists, so skip it; any other failure is real.
+    # Blade at each boundary — but only where a clip STRICTLY spans the frame.
+    # A frame that already sits on an edit point, on the track tail, or in a
+    # gap has no spanning clip and needs no split (e.g. end == last clip's end
+    # when removing the final clip). Checking the condition directly avoids
+    # matching split_clip's error strings.
     for f in (begin, end):
-        try:
+        items = tl.GetItemListInTrack(ttype, tidx) or []
+        if any(it.GetStart() < f < it.GetEnd() for it in items):
             split_clip(resolve, {"trackType": ttype, "trackIndex": tidx, "frame": f})
-        except ToolError as exc:
-            if "strictly inside" not in str(exc):
-                raise
 
     items = tl.GetItemListInTrack(ttype, tidx) or []
     to_remove = [it for it in items if begin <= it.GetStart() and it.GetEnd() <= end]
