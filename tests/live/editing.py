@@ -86,6 +86,48 @@ def _():
     call("delete_timeline_item", trackType="video", trackIndex=1, itemIndex=2)
     call("delete_timeline_item", trackType="video", trackIndex=1, itemIndex=1)
 
+@test("cut_range")
+def _():
+    goto_scratch(); src_required()
+    t = call("get_timeline_item_timing", trackType="video", trackIndex=1, itemIndex=1)
+    start, end = t["start"], t["end"]
+    need(end - start >= 8)
+    a = start + (end - start) // 4
+    b = start + (end - start) // 2
+    r = call("cut_range", begin=a, end=b)  # remove [a, b), ripple-close
+    need(r["removedFrames"] == b - a)
+    items = call("get_track_items", trackType="video", index=1)["items"]
+    # remaining clips contiguous from start, total length reduced by (b - a)
+    last = call("get_timeline_item_timing", trackType="video", trackIndex=1,
+                itemIndex=len(items))
+    first = call("get_timeline_item_timing", trackType="video", trackIndex=1, itemIndex=1)
+    need(first["start"] == start)
+    need(last["end"] == end - (b - a))  # ripple shifted the tail left
+    for i in range(1, len(items)):
+        ti = call("get_timeline_item_timing", trackType="video", trackIndex=1, itemIndex=i)
+        tj = call("get_timeline_item_timing", trackType="video", trackIndex=1, itemIndex=i + 1)
+        need(tj["start"] == ti["end"])  # no gaps
+    # cleanup
+    for i in range(len(items), 0, -1):
+        call("delete_timeline_item", trackType="video", trackIndex=1, itemIndex=i)
+
+@test("cut_range_tail")
+def _():
+    # end == the last clip's end (cut through the tail) must NOT error on the
+    # missing edit point — that boundary already exists.
+    goto_scratch(); src_required()
+    t = call("get_timeline_item_timing", trackType="video", trackIndex=1, itemIndex=1)
+    start, end = t["start"], t["end"]
+    need(end - start >= 8)
+    a = start + (end - start) // 2
+    r = call("cut_range", begin=a, end=end)  # remove the tail half
+    need(r["removedFrames"] == end - a)
+    items = call("get_track_items", trackType="video", index=1)["items"]
+    last = call("get_timeline_item_timing", trackType="video", trackIndex=1, itemIndex=len(items))
+    need(last["end"] == a)  # timeline now ends where the cut began
+    for i in range(len(items), 0, -1):
+        call("delete_timeline_item", trackType="video", trackIndex=1, itemIndex=i)
+
 def _delete_last_video_item():
     n = len(call("get_track_items", trackType="video", index=1)["items"])
     if n >= 1:

@@ -93,6 +93,7 @@ _TOOL_ORDER = [
     'append_clips_to_timeline',
     'add_clip_to_timeline',
     'split_clip',
+    'cut_range',
     'create_timeline',
     'create_timeline_from_clips',
     'delete_timeline',

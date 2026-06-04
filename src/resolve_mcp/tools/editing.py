@@ -99,6 +99,63 @@ def _playhead_frame(tl, project):
     return abs_frame - (tl.GetStartFrame() or 0)
 
 
+def _ripple_remove(tl, project, ttype, tidx, removing, rstart, rend):
+    """Delete a CONTIGUOUS block [rstart, rend) of items and close the gap.
+
+    Works around a Resolve Lite bug: DeleteClips(items, True) (the native
+    ripple delete) wipes the WHOLE track, not just the gap. So we ripple by
+    hand: delete the block plus every downstream clip (non-ripple), then
+    re-add the downstream clips shifted left by the block length.
+
+    Caveats (documented on the callers): re-added downstream clips are fresh
+    timeline items, so they lose clip-level grade/Fusion/transform/retime; and
+    only this track is shifted, so linked audio on other tracks can desync.
+    """
+    if ttype not in ("video", "audio"):
+        # AppendToTimeline re-adds only video (mediaType 1) or audio (2); a
+        # subtitle clip cannot be re-added to close the gap. Reject up front,
+        # before any delete, rather than corrupt the track.
+        raise ToolError(
+            f"ripple/cut is not supported on {ttype!r} tracks — only video and "
+            "audio clips can be shifted to close the gap."
+        )
+    shift = rend - rstart
+    media_type = 1 if ttype == "video" else 2
+    items = tl.GetItemListInTrack(ttype, tidx) or []
+    downstream = [it for it in items if it.GetStart() >= rend]
+    specs = []
+    names = [it.GetName() for it in downstream]  # capture before deleting
+    for it in downstream:
+        mp = it.GetMediaPoolItem()
+        if not mp:
+            raise ToolError(
+                f"cannot ripple-close the gap: downstream clip {it.GetName()!r} "
+                "has no media-pool source (title/generator/compound/nested) and "
+                "cannot be shifted. Remove without ripple, or move it first."
+            )
+        src_in = it.GetSourceStartFrame()
+        specs.append({
+            "mediaPoolItem": mp,
+            "startFrame": src_in,
+            # exclusive out from duration (GetSourceEndFrame's convention varies
+            # and drops a frame on real clips — see split_clip).
+            "endFrame": src_in + (it.GetEnd() - it.GetStart()),
+            "recordFrame": it.GetStart() - shift,
+            "trackIndex": tidx,
+            "mediaType": media_type,
+        })
+    if not tl.DeleteClips(list(removing) + downstream, False):
+        raise ToolError("delete failed while rippling.")
+    if specs:
+        added = project.GetMediaPool().AppendToTimeline(specs) or []
+        if len(added) != len(specs):
+            raise ToolError(
+                f"ripple re-add placed {len(added)}/{len(specs)} downstream "
+                "clips — timeline may be inconsistent; undo in Resolve."
+            )
+    return names
+
+
 @register(
     "get_timeline_item_property",
     "Read transform/crop/composite properties of a timeline clip. Address it "
@@ -334,7 +391,13 @@ def delete_timeline_item(resolve, args):
     tl = _require_timeline(resolve)
     item = _track_item(resolve, args)
     name = item.GetName()
-    if not tl.DeleteClips([item], bool(args.get("ripple", False))):
+    if args.get("ripple", False):
+        # Native DeleteClips(..., True) wipes the whole track on Resolve Lite,
+        # so close the gap by hand (see _ripple_remove).
+        project = _require_project(resolve)
+        _ripple_remove(tl, project, args["trackType"], args["trackIndex"],
+                       [item], item.GetStart(), item.GetEnd())
+    elif not tl.DeleteClips([item], False):
         raise ToolError("DeleteClips failed.")
     return {"ok": True, "deleted": name}
 
@@ -861,8 +924,14 @@ def split_clip(resolve, args):
         ttype = track[0]
         if len(track) > 1:
             tidx = track[1]
-    src_in, src_end = item.GetSourceStartFrame(), item.GetSourceEndFrame()
+    src_in = item.GetSourceStartFrame()
     src_split = src_in + (frame - t_start)
+    # Derive the out-point from the TIMELINE duration, not GetSourceEndFrame():
+    # that method's inclusive/exclusive convention varies (full media vs a clip
+    # added with an explicit endFrame), which dropped the last frame on real
+    # clips. endFrame is exclusive, so src_out = src_in + total duration keeps
+    # both halves exact and the cut frame-accurate.
+    src_out = src_in + (t_end - t_start)
     media_type = 1 if ttype == "video" else 2
     name = item.GetName()
 
@@ -875,7 +944,7 @@ def split_clip(resolve, args):
     halves = [
         {"mediaPoolItem": mp_item, "startFrame": src_in, "endFrame": src_split,
          "recordFrame": t_start, "trackIndex": tidx, "mediaType": media_type},
-        {"mediaPoolItem": mp_item, "startFrame": src_split, "endFrame": src_end,
+        {"mediaPoolItem": mp_item, "startFrame": src_split, "endFrame": src_out,
          "recordFrame": frame, "trackIndex": tidx, "mediaType": media_type},
     ]
     added = mp.AppendToTimeline(halves) or []
@@ -889,6 +958,100 @@ def split_clip(resolve, args):
         "split": name,
         "frame": frame,
         "halves": [a.GetName() for a in added],
+    }
+
+
+@register(
+    "cut_range",
+    "Cut (remove) a timeline frame range [begin, end) on a track and close the "
+    "gap — like marking in/out and doing a ripple delete. begin/end are 0-based "
+    "timeline frames (same space as get_timeline_item_timing start/end). "
+    "trackType defaults to 'video', trackIndex to 1. Composes split_clip: it "
+    "blades at begin and end, removes every clip fully inside the range, and "
+    "closes the gap by shifting later clips left by end-begin. (Resolve's "
+    "native ripple delete wipes the whole track via the API, so the shift is "
+    "done by re-adding the downstream clips — see fallbacks/12.) LIMITATIONS: "
+    "clips must have a media-pool source (titles/generators/compounds/nested "
+    "cannot be bladed or shifted); the cut and the shifted downstream clips "
+    "become fresh items, losing clip-level grade/Fusion/transform/retime; and "
+    "only this track shifts, so linked audio on other tracks can desync.",
+    {
+        "type": "object",
+        "properties": {
+            "begin": {"type": "integer",
+                      "description": "0-based timeline frame where the removed range starts."},
+            "end": {"type": "integer",
+                    "description": "0-based timeline frame where the removed range ends (exclusive)."},
+            "trackType": {"type": "string", "enum": ["video", "audio", "subtitle"],
+                          "default": "video"},
+            "trackIndex": {"type": "integer", "minimum": 1, "default": 1},
+        },
+        "required": ["begin", "end"],
+    },
+)
+def cut_range(resolve, args):
+    tl = _require_timeline(resolve)
+    ttype = args.get("trackType", "video")
+    tidx = args.get("trackIndex", 1)
+    begin, end = args["begin"], args["end"]
+    if ttype not in ("video", "audio"):
+        raise ToolError(
+            f"cut_range is not supported on {ttype!r} tracks — only video and "
+            "audio clips can be bladed and shifted."
+        )
+    if begin < 0:
+        raise ToolError(f"begin ({begin}) must be >= 0.")
+    if begin >= end:
+        raise ToolError(f"begin ({begin}) must be < end ({end}).")
+
+    # Preflight every clip the cut will touch BEFORE mutating anything, so a
+    # non-bladeable clip can't leave the timeline half-modified (with the first
+    # boundary already split and its grade/Fusion lost): the clips spanning
+    # begin/end must be bladeable, and every downstream clip must be shiftable —
+    # all need a media-pool source.
+    pre = tl.GetItemListInTrack(ttype, tidx) or []
+    for f in (begin, end):
+        span = next((it for it in pre if it.GetStart() < f < it.GetEnd()), None)
+        if span is not None and not span.GetMediaPoolItem():
+            raise ToolError(
+                f"cannot cut: the clip spanning frame {f} ({span.GetName()!r}) "
+                "has no media-pool source (title/generator/compound/nested) and "
+                "cannot be bladed."
+            )
+    for it in pre:
+        if it.GetStart() >= end and not it.GetMediaPoolItem():
+            raise ToolError(
+                f"cannot cut: downstream clip {it.GetName()!r} (after frame "
+                f"{end}) has no media-pool source and cannot be shifted to close "
+                "the gap."
+            )
+
+    # Blade at each boundary — but only where a clip STRICTLY spans the frame.
+    # A frame that already sits on an edit point, on the track tail, or in a
+    # gap has no spanning clip and needs no split (e.g. end == last clip's end
+    # when removing the final clip).
+    for f in (begin, end):
+        items = tl.GetItemListInTrack(ttype, tidx) or []
+        if any(it.GetStart() < f < it.GetEnd() for it in items):
+            split_clip(resolve, {"trackType": ttype, "trackIndex": tidx, "frame": f})
+
+    items = tl.GetItemListInTrack(ttype, tidx) or []
+    to_remove = [it for it in items if begin <= it.GetStart() and it.GetEnd() <= end]
+    if not to_remove:
+        raise ToolError(
+            f"no clip fully inside [{begin}, {end}) to remove (empty range, a "
+            "gap, or a non-bladeable clip at a boundary)."
+        )
+    names = [it.GetName() for it in to_remove]
+    project = _require_project(resolve)
+    shifted = _ripple_remove(tl, project, ttype, tidx, to_remove, begin, end)
+    return {
+        "ok": True,
+        "removed": names,
+        "rippledDownstream": shifted,
+        "begin": begin,
+        "end": end,
+        "removedFrames": end - begin,
     }
 
 
