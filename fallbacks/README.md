@@ -18,3 +18,4 @@ Format per entry: **Symptom → Cause → Fix → Commit**.
 | 09 | Timeline markers: absolute frames, start-frame rejected, clear-all data loss | [09-timeline-marker-frames.md](09-timeline-marker-frames.md) |
 | 10 | subprocess output decodes as ASCII in Resolve's Python (`text=True` crash) | [10-subprocess-ascii-locale.md](10-subprocess-ascii-locale.md) |
 | 11 | TimelineItem frames are 0-based, but timecode / `GetStartFrame` are absolute | [11-timeline-frame-zero-based.md](11-timeline-frame-zero-based.md) |
+| 12 | `DeleteClips(ripple=True)` wipes the whole track; ripple by hand | [12-ripple-delete-wipes-track.md](12-ripple-delete-wipes-track.md) |
