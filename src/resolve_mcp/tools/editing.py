@@ -111,6 +111,14 @@ def _ripple_remove(tl, project, ttype, tidx, removing, rstart, rend):
     timeline items, so they lose clip-level grade/Fusion/transform/retime; and
     only this track is shifted, so linked audio on other tracks can desync.
     """
+    if ttype not in ("video", "audio"):
+        # AppendToTimeline re-adds only video (mediaType 1) or audio (2); a
+        # subtitle clip cannot be re-added to close the gap. Reject up front,
+        # before any delete, rather than corrupt the track.
+        raise ToolError(
+            f"ripple/cut is not supported on {ttype!r} tracks — only video and "
+            "audio clips can be shifted to close the gap."
+        )
     shift = rend - rstart
     media_type = 1 if ttype == "video" else 2
     items = tl.GetItemListInTrack(ttype, tidx) or []
@@ -986,6 +994,11 @@ def cut_range(resolve, args):
     ttype = args.get("trackType", "video")
     tidx = args.get("trackIndex", 1)
     begin, end = args["begin"], args["end"]
+    if ttype not in ("video", "audio"):
+        raise ToolError(
+            f"cut_range is not supported on {ttype!r} tracks — only video and "
+            "audio clips can be bladed and shifted."
+        )
     if begin < 0:
         raise ToolError(f"begin ({begin}) must be >= 0.")
     if begin >= end:
