@@ -961,6 +961,207 @@ def split_clip(resolve, args):
     }
 
 
+def _track_item_at_playhead(resolve, args):
+    """Resolve a timeline item from trackType/trackIndex + optional itemIndex,
+    defaulting to the clip under the playhead — the split_clip addressing."""
+    project = _require_project(resolve)
+    tl = _require_timeline(resolve)
+    ttype = args.get("trackType", "video")
+    tidx = args.get("trackIndex", 1)
+    items = tl.GetItemListInTrack(ttype, tidx) or []
+    if args.get("itemIndex") is not None:
+        ii = args["itemIndex"]
+        if ii < 1 or ii > len(items):
+            raise ToolError(f"no item #{ii} on {ttype}{tidx} ({len(items)} item(s)).")
+        return tl, items[ii - 1]
+    frame = _playhead_frame(tl, project)
+    item = next((it for it in items if it.GetStart() <= frame < it.GetEnd()), None)
+    if item is None:
+        raise ToolError(
+            f"no clip under the playhead (frame {frame}) on {ttype}{tidx} — move "
+            "the playhead onto a clip or pass itemIndex."
+        )
+    return tl, item
+
+
+_XFORM_NODE = "MCPXform"
+# Fusion Transform inputs that take a scalar and can be static or keyframed.
+_XFORM_SCALARS = {"zoom": "Size", "angle": "Angle"}
+
+
+def _clip_comp(item):
+    """Get (or create) the clip's Fusion composition."""
+    comp = (
+        item.GetFusionCompByIndex(1)
+        if item.GetFusionCompCount() >= 1
+        else item.AddFusionComp()
+    )
+    if not comp:
+        raise ToolError(f"could not get/create a Fusion comp on {item.GetName()!r}.")
+    return comp
+
+
+def _apply_xform(comp, xf, item, args):
+    """Apply zoom/angle/pan to the Transform node. Each scalar aspect is either
+    static (`zoom`) or animated (`zoom_from`+`zoom_to`); pan is set statically on
+    Center. Returns a dict describing what changed (with keyframe read-backs)."""
+    span = args.get("frames")
+    if span is None:
+        span = item.GetEnd() - item.GetStart()
+    span = max(1, int(span))
+    start = (comp.GetAttrs() or {}).get("COMPN_RenderStart", 0)
+    changed = {}
+    for key, inp in _XFORM_SCALARS.items():
+        v_from, v_to, v = args.get(f"{key}_from"), args.get(f"{key}_to"), args.get(key)
+        if v_from is not None and v_to is not None:
+            setattr(xf, inp, comp.BezierSpline({}))
+            getattr(xf, inp)[start] = v_from
+            getattr(xf, inp)[start + span] = v_to
+            changed[key] = {
+                "from": v_from, "to": v_to, "frames": span,
+                "readback": [xf.GetInput(inp, start), xf.GetInput(inp, start + span)],
+            }
+        elif v is not None:
+            xf.SetInput(inp, v)
+            changed[key] = {"value": v, "readback": xf.GetInput(inp)}
+    px, py = args.get("pan_x"), args.get("pan_y")
+    if px is not None or py is not None:
+        cur = xf.GetInput("Center") or {1: 0.5, 2: 0.5}
+        x = px if px is not None else cur.get(1, 0.5)
+        y = py if py is not None else cur.get(2, 0.5)
+        xf.SetInput("Center", {1: x, 2: y})
+        changed["pan"] = {"x": x, "y": y}
+    return changed
+
+
+_XFORM_ADDR = {
+    "trackType": {"type": "string", "enum": ["video"], "default": "video"},
+    "trackIndex": {"type": "integer", "minimum": 1, "default": 1},
+    "itemIndex": {"type": "integer", "minimum": 1,
+                  "description": "1-based clip on the track. Default: clip under the playhead."},
+}
+_XFORM_VALUES = {
+    "zoom": {"type": "number", "description": "Static scale multiplier (1.0 = 100%)."},
+    "zoom_from": {"type": "number", "description": "Animate scale: start (with zoom_to)."},
+    "zoom_to": {"type": "number", "description": "Animate scale: end (1.6 = punch to 160%)."},
+    "angle": {"type": "number", "description": "Static rotation in degrees."},
+    "angle_from": {"type": "number", "description": "Animate rotation: start degrees."},
+    "angle_to": {"type": "number", "description": "Animate rotation: end degrees."},
+    "pan_x": {"type": "number", "description": "Center X, normalized 0..1 (0.5 = center). Static."},
+    "pan_y": {"type": "number", "description": "Center Y, normalized 0..1 (0.5 = center). Static."},
+    "frames": {"type": "integer",
+               "description": "Animation span from the clip start (default: whole clip)."},
+}
+
+
+@register(
+    "insert_clip_fusion_transform",
+    "Add a Fusion Transform to a timeline clip — the scriptable way to animate "
+    "zoom/pan/rotate (the Edit-page transform cannot be keyframed via the API). "
+    "Targets the clip under the PLAYHEAD by default (trackType 'video', "
+    "trackIndex 1; pass itemIndex to override). Adds a Transform node named "
+    f"{_XFORM_NODE!r} spliced before MediaOut; errors if one already exists "
+    "(use edit_clip_fusion_transform to change it). Optionally set initial "
+    "values: zoom/angle (static) or zoom_from+zoom_to / angle_from+angle_to "
+    "(animated over 'frames'), and pan_x/pan_y (Center, normalized 0..1). "
+    "Units: zoom = multiplier (1.0=100%), pan = 0..1 frame fraction, angle = "
+    "degrees. NOTE: adds a Fusion comp; the move lives in the Fusion layer, so "
+    "the Edit-page Inspector ZoomX/ZoomY will NOT reflect it.",
+    {"type": "object", "properties": {**_XFORM_ADDR, **_XFORM_VALUES}, "required": []},
+)
+def insert_clip_fusion_transform(resolve, args):
+    tl, item = _track_item_at_playhead(resolve, args)
+    comp = _clip_comp(item)
+    comp.Lock()
+    try:
+        if comp.FindTool(_XFORM_NODE) is not None:
+            raise ToolError(
+                f"{item.GetName()!r} already has a {_XFORM_NODE} transform — use "
+                "edit_clip_fusion_transform to change it, or "
+                "remove_clip_fusion_transform first."
+            )
+        xf = comp.AddTool("Transform")
+        if not xf:
+            raise ToolError("Fusion AddTool('Transform') failed.")
+        mouts = list((comp.GetToolList(False, "MediaOut") or {}).values())
+        mout = mouts[0] if mouts else None
+        if mout is None:
+            raise ToolError("no MediaOut in the clip's Fusion comp.")
+        out = mout.FindMainInput(1).GetConnectedOutput()
+        upstream = out.GetTool() if out else None
+        if upstream is not None:
+            xf.ConnectInput("Input", upstream)
+        mout.ConnectInput("Input", xf)
+        xf.SetAttrs({"TOOLS_Name": _XFORM_NODE})  # name last = fully wired marker
+        changed = _apply_xform(comp, xf, item, args)
+    finally:
+        comp.Unlock()
+    return {"ok": True, "item": item.GetName(), "node": _XFORM_NODE,
+            "inserted": True, "changed": changed}
+
+
+@register(
+    "edit_clip_fusion_transform",
+    "Change the Fusion Transform added by insert_clip_fusion_transform on a "
+    "timeline clip. Targets the clip under the PLAYHEAD by default. Each aspect "
+    "is static (zoom / angle) or animated (zoom_from+zoom_to / angle_from+"
+    "angle_to over 'frames'); pan_x/pan_y set Center (normalized 0..1). Zoom = "
+    "multiplier (1.0=100%), angle = degrees. Errors if the clip has no "
+    f"{_XFORM_NODE} transform yet (insert it first). Re-runnable.",
+    {"type": "object", "properties": {**_XFORM_ADDR, **_XFORM_VALUES}, "required": []},
+)
+def edit_clip_fusion_transform(resolve, args):
+    tl, item = _track_item_at_playhead(resolve, args)
+    if item.GetFusionCompCount() < 1:
+        raise ToolError(f"{item.GetName()!r} has no Fusion comp — insert first.")
+    comp = item.GetFusionCompByIndex(1)
+    comp.Lock()
+    try:
+        xf = comp.FindTool(_XFORM_NODE)
+        if xf is None:
+            raise ToolError(
+                f"{item.GetName()!r} has no {_XFORM_NODE} transform — use "
+                "insert_clip_fusion_transform first."
+            )
+        changed = _apply_xform(comp, xf, item, args)
+    finally:
+        comp.Unlock()
+    if not changed:
+        raise ToolError("nothing to change — pass zoom/angle/pan values.")
+    return {"ok": True, "item": item.GetName(), "node": _XFORM_NODE, "changed": changed}
+
+
+@register(
+    "remove_clip_fusion_transform",
+    "Remove the Fusion Transform added by insert_clip_fusion_transform from a "
+    "timeline clip, restoring the chain (its upstream reconnects to MediaOut). "
+    "Targets the clip under the PLAYHEAD by default. Errors if there is no "
+    f"{_XFORM_NODE} transform. (The Fusion comp itself stays on the clip.)",
+    {"type": "object", "properties": dict(_XFORM_ADDR), "required": []},
+)
+def remove_clip_fusion_transform(resolve, args):
+    tl, item = _track_item_at_playhead(resolve, args)
+    if item.GetFusionCompCount() < 1:
+        raise ToolError(f"{item.GetName()!r} has no Fusion comp.")
+    comp = item.GetFusionCompByIndex(1)
+    comp.Lock()
+    try:
+        xf = comp.FindTool(_XFORM_NODE)
+        if xf is None:
+            raise ToolError(f"{item.GetName()!r} has no {_XFORM_NODE} transform.")
+        # reconnect the Transform's upstream straight to MediaOut, then delete.
+        mouts = list((comp.GetToolList(False, "MediaOut") or {}).values())
+        mout = mouts[0] if mouts else None
+        out = xf.FindMainInput(1).GetConnectedOutput()
+        upstream = out.GetTool() if out else None
+        if mout is not None and upstream is not None:
+            mout.ConnectInput("Input", upstream)
+        xf.Delete()
+    finally:
+        comp.Unlock()
+    return {"ok": True, "item": item.GetName(), "removed": _XFORM_NODE}
+
+
 @register(
     "cut_range",
     "Cut (remove) a timeline frame range [begin, end) on a track and close the "

@@ -35,7 +35,7 @@ zoom-in keyframe reveal):
 > `docs/images/demo.gif` and replace this line with
 > `![Animated "GameHelper" opening title built by Claude in DaVinci Resolve](docs/images/demo.gif)`.
 
-See the [tools reference](docs/TOOLS.md) for the full 154-tool surface —
+See the [tools reference](docs/TOOLS.md) for the full 157-tool surface —
 editing, color, render, media pool, and Fusion title styling.
 
 ## Why this works on the free edition
@@ -148,7 +148,7 @@ endpoint, scanning the same port range the server uses on startup.
 
 ## Tools
 
-**154 tools**, all exercised live against DaVinci Resolve Lite, spanning the
+**157 tools**, all exercised live against DaVinci Resolve Lite, spanning the
 full pipeline:
 
 - **Status & navigation** — page switching, project/timeline settings
