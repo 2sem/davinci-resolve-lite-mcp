@@ -1090,15 +1090,18 @@ def insert_clip_fusion_transform(resolve, args):
                 "edit_clip_fusion_transform to change it, or "
                 "remove_clip_fusion_transform first."
             )
-        xf = comp.AddTool("Transform")
-        if not xf:
-            raise ToolError("Fusion AddTool('Transform') failed.")
+        # Find MediaOut BEFORE adding anything, so a malformed comp (no
+        # MediaOut) fails without leaving an orphan Transform that a retry
+        # would stack on.
         mouts = list((comp.GetToolList(False, "MediaOut") or {}).values())
         mout = mouts[0] if mouts else None
         if mout is None:
             raise ToolError("no MediaOut in the clip's Fusion comp.")
         out = mout.FindMainInput(1).GetConnectedOutput()
         upstream = out.GetTool() if out else None
+        xf = comp.AddTool("Transform")
+        if not xf:
+            raise ToolError("Fusion AddTool('Transform') failed.")
         if upstream is not None:
             xf.ConnectInput("Input", upstream)
         mout.ConnectInput("Input", xf)
