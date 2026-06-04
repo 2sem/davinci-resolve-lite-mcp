@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.15.0
+
+### Added
+- `cut_range` — remove a timeline frame range `[begin, end)` on a track and
+  close the gap (the "cut a section" / ripple-trim op). Blades at begin and end
+  (via `split_clip`), removes the clips inside, and shifts the downstream clips
+  left by `end - begin`. begin/end are 0-based; trackType defaults to `video`,
+  trackIndex to `1`. 153 → 154 tools. LIMITATIONS: video/audio only; bladed +
+  shifted clips become fresh items (lose grade/Fusion/transform/retime); only
+  the operated track shifts (linked audio on other tracks can desync).
+
+### Fixed
+- **Ripple delete was broken.** Resolve Lite's `DeleteClips(items, True)` wipes
+  the whole track, not just the gap, so `delete_timeline_item(ripple=true)`
+  silently emptied the track. Both `cut_range` and `delete_timeline_item` now
+  ripple by hand — delete non-ripple, then re-add the downstream clips shifted
+  left (`fallbacks/12`).
+- `split_clip` / ripple were off by one on real media (out-point came from
+  `GetSourceEndFrame`, whose convention varies); the out-point is now derived
+  from the clip's timeline duration, so cuts are frame-accurate.
+
 ## 0.14.0
 
 ### Added
