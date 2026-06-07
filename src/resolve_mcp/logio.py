@@ -58,22 +58,37 @@ def safe_flush():
             pass
 
 
-def log_file(message=""):
+def log_file(message="", stamp=None):
     """Append to the logfile only (no Console write).
 
     Safe to call from non-main threads, where writing to Resolve's stdout would
-    violate the single-thread discipline the command queue enforces.
+    violate the single-thread discipline the command queue enforces. Pass
+    'stamp' to share the exact timestamp with a matching Console line.
     """
     try:
         with open(LOG_PATH, "a", encoding="utf-8") as handle:
-            stamp = time.strftime("%Y-%m-%d %H:%M:%S")
+            stamp = stamp or time.strftime("%Y-%m-%d %H:%M:%S")
             handle.write(f"{stamp}  {message}\n")
     except OSError:
         pass
 
 
 def log(message=""):
-    """Print to the Resolve Console and append to the logfile (timestamped)."""
+    """Print to the Resolve Console and append to the logfile, both timestamped
+    with the same stamp (Console line now matches the logfile)."""
+    stamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    print(f"{stamp}  {message}")
+    safe_flush()
+    log_file(message, stamp)
+
+
+def log_raw(message=""):
+    """Print to Console + logfile WITHOUT a timestamp — for the one-time startup
+    banner, whose decorative lines shouldn't each carry a timestamp."""
     print(message)
     safe_flush()
-    log_file(message)
+    try:
+        with open(LOG_PATH, "a", encoding="utf-8") as handle:
+            handle.write(f"{message}\n")
+    except OSError:
+        pass

@@ -17,7 +17,7 @@ from .config import (
     SERVER_VERSION,
 )
 from .connection import get_resolve
-from .logio import LOG_PATH, log, log_file, safe_flush
+from .logio import LOG_PATH, log, log_file, log_raw, safe_flush
 from .tools import TOOLS, ToolError
 
 
@@ -75,7 +75,7 @@ def log_startup_guide(server_name, version, how, resolve, url, log_path):
         "",
     ]
     for line in lines:
-        log(line)
+        log_raw(line)  # banner: no per-line timestamp
 
 
 def _type_ok(value, json_type):
