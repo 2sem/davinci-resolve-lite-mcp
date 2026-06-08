@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.16.0
+
+### Added
+- Clip transform animation — `insert_clip_fusion_transform` /
+  `edit_clip_fusion_transform` / `remove_clip_fusion_transform`. The Edit-page
+  transform can't be keyframed via the API (`SetProperty` is static), so these
+  drive a Fusion Transform on the clip: zoom (`Size`), pan (`Center`) and rotate
+  (`Angle`), static or keyframed (`zoom_from`/`zoom_to` etc. over `frames`).
+  Fusion-native units — zoom = multiplier (1.0=100%), pan = normalized 0..1,
+  angle = degrees. 154 → 157 tools.
+
+### Changed
+- `split_clip` now also splits the clip's LINKED audio/video at the same frame
+  and re-links the halves (like the UI razor); pass `linked=false` for a
+  single-track blade. `cut_range` blades single-track (`linked=false`).
+- Console log lines are now timestamped to match the logfile (the per-call
+  `[davinci-mcp] … -> ok (Nms)` line); the startup banner stays un-timestamped.
+
 ## 0.15.0
 
 ### Added
