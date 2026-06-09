@@ -56,6 +56,8 @@ editing, color, render, media pool, and Fusion title styling.
 
 ## Install
 
+> 🎬 **[Install walkthrough (video)](docs/videos/davinci-lite-mcp-install.mp4)** — plays inline on GitHub (H.264 MP4, cross-platform).
+
 ```bash
 git clone https://github.com/2sem/davinci-resolve-lite-mcp.git
 cd davinci-resolve-lite-mcp
