@@ -95,3 +95,9 @@ _port, PORT_SOURCE = _resolve_setting("DAVINCI_MCP_PORT", "port", 8765)
 DEFAULT_HOST = str(_host)
 DEFAULT_PORT = int(_port)
 PORT_PINNED = PORT_SOURCE != "default"  # env or file → bind exactly, no scan
+
+# The sandbox-friendly place to drop a config file (same dir as the logfile);
+# shown in the startup banner so users can pin the port without the README.
+RECOMMENDED_CONFIG_PATH = CONFIG_PATH or os.path.join(
+    _real_home(), "Movies", CONFIG_FILENAME
+)

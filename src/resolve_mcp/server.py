@@ -16,6 +16,7 @@ from .config import (
     PORT_SCAN_RANGE,
     PORT_SOURCE,
     PROTOCOL_VERSION,
+    RECOMMENDED_CONFIG_PATH,
     SERVER_NAME,
     SERVER_VERSION,
 )
@@ -34,7 +35,38 @@ def log_startup_guide(server_name, version, how, resolve, url, log_path):
             src = CONFIG_PATH or "config file"
         port_note = f"pinned (from {src}) — will not auto-increment"
     else:
-        port_note = "default 8765, auto-increments if busy — see README to pin"
+        port_note = "default 8765, auto-increments if busy — pin it below"
+
+    if PORT_PINNED:
+        port_guide = [
+            "-" * 64,
+            f"  PORT IS PINNED — source: {src}",
+            "",
+            "  The endpoint above will not move between launches. Edit that",
+            "  source (then restart this script) to change the port.",
+        ]
+    else:
+        port_guide = [
+            "-" * 64,
+            "  MAKE THE PORT STABLE (recommended)",
+            "",
+            "  The port auto-increments from 8765 when it is busy, so the URL",
+            "  above can change between launches and a saved Claude registration",
+            "  may 404. To pin it, create this file:",
+            "",
+            f"    {RECOMMENDED_CONFIG_PATH}",
+            "",
+            "  with:",
+            "",
+            '    { "host": "127.0.0.1", "port": 8770 }',
+            "",
+            "  then restart this script (Utility > stop_davinci_mcp_server,",
+            "  then davinci_mcp_server) and register that fixed port once:",
+            "",
+            "       claude mcp add --transport http davinci \\",
+            "         http://127.0.0.1:8770/mcp",
+        ]
+
     lines = [
         "",
         "=" * 64,
@@ -78,6 +110,7 @@ def log_startup_guide(server_name, version, how, resolve, url, log_path):
         "",
         "  Other MCP clients: point them at the endpoint above using the",
         "  Streamable HTTP transport (POST JSON-RPC to /mcp).",
+        *port_guide,
         "-" * 64,
         "  Server running. To STOP it without quitting Resolve:",
         "",
