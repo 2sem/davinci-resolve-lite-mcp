@@ -15,7 +15,10 @@
   longer auto-increments to a neighbour, so a registered Claude URL never
   silently drifts (which showed up as `HTTP 404 at …:8765/mcp` on reconnect).
   Auto-increment still applies only to the bare default `8765`. The startup
-  banner shows whether the port is pinned and from where.
+  banner shows whether the port is pinned and from where (env vs config file).
+- The stop paths (`stop.sh` and `stop_davinci_mcp_server.py`) now resolve the
+  port through the same config (env > file > default), so a config-pinned port
+  outside the default scan window is still reachable.
 
 ## 0.16.0
 

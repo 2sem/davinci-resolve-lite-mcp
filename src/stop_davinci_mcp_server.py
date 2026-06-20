@@ -14,8 +14,45 @@ import tempfile
 import time
 import urllib.request
 
-HOST = os.environ.get("DAVINCI_MCP_HOST", "127.0.0.1")
-START_PORT = int(os.environ.get("DAVINCI_MCP_PORT", "8765"))
+
+def _bootstrap_sys_path():
+    """Put the dir containing the ``resolve_mcp`` package on sys.path (mirrors
+    the launcher) so the stop script can reuse the SAME host/port resolution."""
+    candidates = []
+    try:
+        here = os.path.dirname(os.path.abspath(__file__))
+        candidates.append(here)                                        # dev: package sibling
+        candidates.append(os.path.join(os.path.dirname(here), "MCP"))  # installed: <Scripts>/MCP
+    except NameError:
+        pass
+    home = os.path.expanduser("~")
+    candidates.append(os.path.join(
+        home, "Library", "Application Support", "Fusion", "Scripts", "MCP"))
+    candidates.append(os.path.join(
+        home, "Library", "Application Support", "Blackmagic Design",
+        "DaVinci Resolve", "Fusion", "Scripts", "MCP"))
+    for path in candidates:
+        if path and os.path.isdir(os.path.join(path, "resolve_mcp")) and path not in sys.path:
+            sys.path.insert(0, path)
+
+
+def _resolve_host_port():
+    """Resolve (host, port) exactly as the server does — env > config file >
+    default — so a config-pinned port (outside the default scan window) is still
+    reachable. Falls back to env/8765 if the package can't be imported."""
+    _bootstrap_sys_path()
+    try:
+        from resolve_mcp.config import DEFAULT_HOST, DEFAULT_PORT
+
+        return DEFAULT_HOST, DEFAULT_PORT
+    except Exception:  # noqa: BLE001
+        return (
+            os.environ.get("DAVINCI_MCP_HOST", "127.0.0.1"),
+            int(os.environ.get("DAVINCI_MCP_PORT", "8765")),
+        )
+
+
+HOST, START_PORT = _resolve_host_port()
 SCAN = 20
 TIMEOUT = 2
 

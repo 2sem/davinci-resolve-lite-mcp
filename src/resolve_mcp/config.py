@@ -71,17 +71,23 @@ _CONFIG, CONFIG_PATH = _load_config()
 
 
 def _resolve_setting(env_name, config_key, default):
-    """env var > config file > default. Returns (value, pinned)."""
+    """env var > config file > default. Returns (value, source).
+
+    ``source`` is ``"env"``, ``"file"`` or ``"default"`` so callers can report
+    exactly where a value came from (the env var wins even when a config file is
+    also present, so a bare "pinned" flag would mislabel that case).
+    """
     env = os.environ.get(env_name)
     if env:
-        return env, True
+        return env, "env"
     if config_key in _CONFIG:
-        return _CONFIG[config_key], True
-    return default, False
+        return _CONFIG[config_key], "file"
+    return default, "default"
 
 
-_host, _host_pinned = _resolve_setting("DAVINCI_MCP_HOST", "host", "127.0.0.1")
-_port, PORT_PINNED = _resolve_setting("DAVINCI_MCP_PORT", "port", 8765)
+_host, _host_source = _resolve_setting("DAVINCI_MCP_HOST", "host", "127.0.0.1")
+_port, PORT_SOURCE = _resolve_setting("DAVINCI_MCP_PORT", "port", 8765)
 
 DEFAULT_HOST = str(_host)
 DEFAULT_PORT = int(_port)
+PORT_PINNED = PORT_SOURCE != "default"  # env or file → bind exactly, no scan

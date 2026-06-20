@@ -14,6 +14,7 @@ from .config import (
     DEFAULT_PORT,
     PORT_PINNED,
     PORT_SCAN_RANGE,
+    PORT_SOURCE,
     PROTOCOL_VERSION,
     SERVER_NAME,
     SERVER_VERSION,
@@ -27,7 +28,10 @@ def log_startup_guide(server_name, version, how, resolve, url, log_path):
     """Emit the full connect-from-Claude guide on launch."""
     add_cmd = f"claude mcp add --transport http davinci {url}"
     if PORT_PINNED:
-        src = CONFIG_PATH if CONFIG_PATH else "DAVINCI_MCP_PORT env"
+        if PORT_SOURCE == "env":
+            src = "DAVINCI_MCP_PORT env"
+        else:  # "file"
+            src = CONFIG_PATH or "config file"
         port_note = f"pinned (from {src}) — will not auto-increment"
     else:
         port_note = "default 8765, auto-increments if busy — see README to pin"
