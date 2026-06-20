@@ -173,7 +173,9 @@ The Console banner confirms the source — look for
 `DAVINCI_MCP_HOST` environment variables, then the config file, then the
 built-in defaults. The env vars also pin the port, but a Dock-launched Resolve
 won't see a shell `export`; the config file is the simplest persistent option.
-A custom config location can be forced with `DAVINCI_MCP_CONFIG=/path/to.json`.
+`DAVINCI_MCP_CONFIG=/path/to.json` forces a specific config file **exclusively**
+— if that path is missing or malformed the server falls back to the built-in
+defaults rather than reading `~/Movies` / XDG.
 
 If the port already drifted and Claude points at the wrong one, re-point it:
 

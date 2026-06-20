@@ -38,20 +38,24 @@ def _real_home():
 def _config_candidates():
     """Config-file locations to try, first existing wins.
 
-    Order matters. ``DAVINCI_MCP_CONFIG`` is an explicit override. Then
+    ``DAVINCI_MCP_CONFIG`` is an EXCLUSIVE override: when set, it is the only
+    path consulted, so a typo / missing / malformed file there falls back to the
+    built-in defaults rather than silently picking up another persistent config
+    (which would bind the server to an unexpected endpoint). Without it, search
     ``~/Movies`` — the only user-friendly directory the sandboxed Lite app is
-    granted to read (same reason the logfile lives there); ``~/.config`` is
-    OUTSIDE the sandbox so Lite cannot read it. The XDG path is kept last for
-    the non-sandboxed Studio build, where it is the conventional location.
+    granted to read (same reason the logfile lives there; ``~/.config`` is
+    OUTSIDE the sandbox so Lite cannot read it) — then the XDG path for the
+    non-sandboxed Studio build, where it is conventional.
     """
+    explicit = os.environ.get("DAVINCI_MCP_CONFIG")
+    if explicit:
+        return [explicit]
     home = _real_home()
     xdg = os.environ.get("XDG_CONFIG_HOME") or os.path.join(home, ".config")
-    paths = [
-        os.environ.get("DAVINCI_MCP_CONFIG"),
+    return [
         os.path.join(home, "Movies", CONFIG_FILENAME),
         os.path.join(xdg, SERVER_NAME, "config.json"),
     ]
-    return [p for p in paths if p]
 
 
 def _load_config():

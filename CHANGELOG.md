@@ -9,6 +9,8 @@
   cannot read `~/.config` (that XDG path is still honored for the non-sandboxed
   Studio build, plus a `DAVINCI_MCP_CONFIG` override). Resolution order:
   `DAVINCI_MCP_PORT`/`DAVINCI_MCP_HOST` env > config file > defaults.
+  `DAVINCI_MCP_CONFIG` is exclusive — a missing/malformed path there falls back
+  to the built-in defaults rather than reading `~/Movies` / XDG.
 
 ### Changed
 - A configured port is now **pinned**: the server binds exactly that port and no

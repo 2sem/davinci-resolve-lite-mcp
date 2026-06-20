@@ -193,12 +193,18 @@ def main():
     import resolve_mcp.config as cfg
 
     os.environ.pop("DAVINCI_MCP_PORT", None)
-    os.environ.pop("DAVINCI_MCP_CONFIG", None)
+    # DAVINCI_MCP_CONFIG is an EXCLUSIVE override, so pointing it at a missing
+    # path isolates the test from any real ~/Movies / XDG config the developer
+    # may have created per the README -> deterministic default.
+    cpath = os.path.join(tempfile.gettempdir(), "davinci-mcp-cfgtest.json")
+    missing = os.path.join(tempfile.gettempdir(), "davinci-mcp-no-such-config.json")
+    if os.path.exists(missing):
+        os.remove(missing)
+    os.environ["DAVINCI_MCP_CONFIG"] = missing
     importlib.reload(cfg)
     check("default port 8765, not pinned",
           cfg.DEFAULT_PORT == 8765 and cfg.PORT_PINNED is False and cfg.PORT_SOURCE == "default")
 
-    cpath = os.path.join(tempfile.gettempdir(), "davinci-mcp-cfgtest.json")
     with open(cpath, "w", encoding="utf-8") as fh:
         json.dump({"host": "127.0.0.1", "port": 8771}, fh)
     os.environ["DAVINCI_MCP_CONFIG"] = cpath
