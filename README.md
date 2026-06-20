@@ -131,6 +131,49 @@ The Lite container path is detected automatically.
 
 4. Ask Claude to control Resolve.
 
+### Pin a stable port (recommended)
+
+The server listens on `8765` by default, but **auto-increments to `8766`, `8767`,
+… if that port is already busy** (another local tool — e.g. `opencode` — may
+grab `8765` first). Because the winner of that race changes between launches,
+the port — and therefore the URL you registered with Claude — can shift, and a
+stale registration shows up as:
+
+```
+Failed to reconnect to davinci: HTTP 404 at http://127.0.0.1:8765/mcp
+```
+
+Lock it to a dedicated port nothing else uses so you register **once** and never
+touch it again. On macOS, set it with `launchctl setenv` so that
+**GUI-launched Resolve inherits it** (a plain `export` in your shell does not
+reach an app started from the Dock):
+
+```bash
+# 1. pin a dedicated port (any free port; 8770 is just an example)
+launchctl setenv DAVINCI_MCP_PORT 8770
+
+# 2. FULLY QUIT and relaunch DaVinci Resolve, then start the server
+#    (Workspace > Scripts > Utility > davinci_mcp_server)
+
+# 3. register Claude once at that fixed port
+claude mcp add --transport http davinci http://127.0.0.1:8770/mcp
+```
+
+Verify the Console banner now prints `http://127.0.0.1:8770/mcp` and
+`claude mcp list` shows `davinci: http://127.0.0.1:8770/mcp - ✔ Connected`.
+
+> `launchctl setenv` lasts until you log out. To make it permanent, add it to a
+> login item / LaunchAgent. Alternatively, just keep port `8765` free before
+> launching Resolve (quit whatever holds it). `DAVINCI_MCP_HOST` works the same
+> way if you need to change the bind address.
+
+If the port did move and Claude points at the wrong one, re-point it:
+
+```bash
+claude mcp remove davinci
+claude mcp add --transport http davinci http://127.0.0.1:<actual-port>/mcp
+```
+
 ### Stopping
 
 Any of these stops the server:
@@ -142,9 +185,9 @@ Any of these stops the server:
 The menu stop script and `stop.sh` both POST to the server's `/shutdown`
 endpoint, scanning the same port range the server uses on startup.
 
-> The port auto-increments from `8765` if that port is busy. Override the
-> default with the `DAVINCI_MCP_PORT` / `DAVINCI_MCP_HOST` environment
-> variables before launching Resolve.
+> The port auto-increments from `8765` if that port is busy — see
+> [Pin a stable port](#pin-a-stable-port-recommended) to lock it down with
+> `DAVINCI_MCP_PORT` so the URL never moves between launches.
 
 ## Tools
 
