@@ -187,6 +187,31 @@ def main():
     check("wrong type -> isError",
           r["result"]["isError"] and "must be string" in r["result"]["content"][0]["text"])
 
+    # 6b. Config resolution: env > config file > default, and pinning.
+    print("config:")
+    import importlib
+    import resolve_mcp.config as cfg
+
+    os.environ.pop("DAVINCI_MCP_PORT", None)
+    os.environ.pop("DAVINCI_MCP_CONFIG", None)
+    importlib.reload(cfg)
+    check("default port 8765, not pinned", cfg.DEFAULT_PORT == 8765 and cfg.PORT_PINNED is False)
+
+    cpath = os.path.join(tempfile.gettempdir(), "davinci-mcp-cfgtest.json")
+    with open(cpath, "w", encoding="utf-8") as fh:
+        json.dump({"host": "127.0.0.1", "port": 8771}, fh)
+    os.environ["DAVINCI_MCP_CONFIG"] = cpath
+    importlib.reload(cfg)
+    check("config file pins port", cfg.DEFAULT_PORT == 8771 and cfg.PORT_PINNED is True)
+
+    os.environ["DAVINCI_MCP_PORT"] = "8799"
+    importlib.reload(cfg)
+    check("env overrides config file", cfg.DEFAULT_PORT == 8799 and cfg.PORT_PINNED is True)
+    os.environ.pop("DAVINCI_MCP_PORT", None)
+    os.environ.pop("DAVINCI_MCP_CONFIG", None)
+    os.remove(cpath)
+    importlib.reload(cfg)
+
     # 7. Bridge fails fast once stopped (no hang on done.wait).
     print("bridge:")
     from resolve_mcp.bridge import ResolveBridge

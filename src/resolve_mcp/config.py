@@ -1,13 +1,87 @@
-"""Static configuration and environment-derived constants."""
+"""Static configuration and environment-derived constants.
 
+Host/port resolve from (highest priority first):
+
+1. environment variables ``DAVINCI_MCP_HOST`` / ``DAVINCI_MCP_PORT``
+2. a persistent JSON config file (see ``_config_candidates``)
+3. the built-in defaults (``127.0.0.1`` / ``8765``)
+
+When the port comes from (1) or (2) it is treated as **pinned**: the server
+binds exactly that port and refuses to auto-increment, so the URL you register
+with Claude never silently moves between launches. Only the bare default (3)
+keeps the old scan-forward-if-busy behaviour.
+"""
+
+import json
 import os
 
 SERVER_NAME = "davinci-resolve-lite-mcp"
 SERVER_VERSION = "0.16.0"
 PROTOCOL_VERSION = "2025-06-18"
 
-DEFAULT_HOST = os.environ.get("DAVINCI_MCP_HOST", "127.0.0.1")
-DEFAULT_PORT = int(os.environ.get("DAVINCI_MCP_PORT", "8765"))
-PORT_SCAN_RANGE = 20  # if DEFAULT_PORT is busy, try the next N ports
-
 LOG_FILENAME = "davinci-resolve-lite-mcp.log"
+CONFIG_FILENAME = "davinci-resolve-lite-mcp.config.json"
+
+PORT_SCAN_RANGE = 20  # only when the port is NOT pinned (bare default)
+
+
+def _real_home():
+    """Real home dir even under the sandbox (HOME is redirected there)."""
+    try:
+        import pwd  # noqa: WPS433
+
+        return pwd.getpwuid(os.getuid()).pw_dir
+    except Exception:  # noqa: BLE001
+        return os.path.expanduser("~")
+
+
+def _config_candidates():
+    """Config-file locations to try, first existing wins.
+
+    Order matters. ``DAVINCI_MCP_CONFIG`` is an explicit override. Then
+    ``~/Movies`` — the only user-friendly directory the sandboxed Lite app is
+    granted to read (same reason the logfile lives there); ``~/.config`` is
+    OUTSIDE the sandbox so Lite cannot read it. The XDG path is kept last for
+    the non-sandboxed Studio build, where it is the conventional location.
+    """
+    home = _real_home()
+    xdg = os.environ.get("XDG_CONFIG_HOME") or os.path.join(home, ".config")
+    paths = [
+        os.environ.get("DAVINCI_MCP_CONFIG"),
+        os.path.join(home, "Movies", CONFIG_FILENAME),
+        os.path.join(xdg, SERVER_NAME, "config.json"),
+    ]
+    return [p for p in paths if p]
+
+
+def _load_config():
+    """Return (settings_dict, path) for the first readable JSON config, else ({}, None)."""
+    for path in _config_candidates():
+        try:
+            with open(path, encoding="utf-8") as handle:
+                data = json.load(handle)
+        except (OSError, ValueError):
+            continue
+        if isinstance(data, dict):
+            return data, path
+    return {}, None
+
+
+_CONFIG, CONFIG_PATH = _load_config()
+
+
+def _resolve_setting(env_name, config_key, default):
+    """env var > config file > default. Returns (value, pinned)."""
+    env = os.environ.get(env_name)
+    if env:
+        return env, True
+    if config_key in _CONFIG:
+        return _CONFIG[config_key], True
+    return default, False
+
+
+_host, _host_pinned = _resolve_setting("DAVINCI_MCP_HOST", "host", "127.0.0.1")
+_port, PORT_PINNED = _resolve_setting("DAVINCI_MCP_PORT", "port", 8765)
+
+DEFAULT_HOST = str(_host)
+DEFAULT_PORT = int(_port)
