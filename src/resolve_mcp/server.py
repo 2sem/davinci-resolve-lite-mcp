@@ -9,10 +9,14 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .bridge import ResolveBridge
 from .config import (
+    CONFIG_PATH,
     DEFAULT_HOST,
     DEFAULT_PORT,
+    PORT_PINNED,
     PORT_SCAN_RANGE,
+    PORT_SOURCE,
     PROTOCOL_VERSION,
+    RECOMMENDED_CONFIG_PATH,
     SERVER_NAME,
     SERVER_VERSION,
 )
@@ -24,6 +28,45 @@ from .tools import TOOLS, ToolError
 def log_startup_guide(server_name, version, how, resolve, url, log_path):
     """Emit the full connect-from-Claude guide on launch."""
     add_cmd = f"claude mcp add --transport http davinci {url}"
+    if PORT_PINNED:
+        if PORT_SOURCE == "env":
+            src = "DAVINCI_MCP_PORT env"
+        else:  # "file"
+            src = CONFIG_PATH or "config file"
+        port_note = f"pinned (from {src}) — will not auto-increment"
+    else:
+        port_note = "default 8765, auto-increments if busy — pin it below"
+
+    if PORT_PINNED:
+        port_guide = [
+            "-" * 64,
+            f"  PORT IS PINNED — source: {src}",
+            "",
+            "  The endpoint above will not move between launches. Edit that",
+            "  source (then restart this script) to change the port.",
+        ]
+    else:
+        port_guide = [
+            "-" * 64,
+            "  MAKE THE PORT STABLE (recommended)",
+            "",
+            "  The port auto-increments from 8765 when it is busy, so the URL",
+            "  above can change between launches and a saved Claude registration",
+            "  may 404. To pin it, create this file:",
+            "",
+            f"    {RECOMMENDED_CONFIG_PATH}",
+            "",
+            "  with:",
+            "",
+            '    { "host": "127.0.0.1", "port": 8770 }',
+            "",
+            "  then restart this script (Utility > stop_davinci_mcp_server,",
+            "  then davinci_mcp_server) and register that fixed port once:",
+            "",
+            "       claude mcp add --transport http davinci \\",
+            "         http://127.0.0.1:8770/mcp",
+        ]
+
     lines = [
         "",
         "=" * 64,
@@ -33,6 +76,7 @@ def log_startup_guide(server_name, version, how, resolve, url, log_path):
         f"  Product                  : {resolve.GetProductName()} "
         f"{resolve.GetVersionString()}",
         f"  MCP endpoint             : {url}",
+        f"  Port                     : {port_note}",
         f"  Log file                 : {log_path}",
         "-" * 64,
         "  HOW TO CONNECT FROM CLAUDE CODE",
@@ -66,6 +110,7 @@ def log_startup_guide(server_name, version, how, resolve, url, log_path):
         "",
         "  Other MCP clients: point them at the endpoint above using the",
         "  Streamable HTTP transport (POST JSON-RPC to /mcp).",
+        *port_guide,
         "-" * 64,
         "  Server running. To STOP it without quitting Resolve:",
         "",
@@ -308,23 +353,35 @@ def make_handler(dispatcher):
     return Handler
 
 
-def start_http_server(host, port, dispatcher):
-    """Bind, scanning forward from ``port`` if it is in use. Returns (server, port)."""
+def start_http_server(host, port, dispatcher, scan=PORT_SCAN_RANGE):
+    """Bind, scanning forward from ``port`` if it is in use. Returns (server, port).
+
+    With ``scan == 1`` the port is pinned: bind exactly ``port`` or fail loudly,
+    so a configured URL never silently drifts to a neighbouring port.
+    """
+    span = max(1, scan)
     last_err = None
-    for candidate in range(port, port + PORT_SCAN_RANGE):
+    for candidate in range(port, port + span):
         try:
             server = ThreadingHTTPServer((host, candidate), make_handler(dispatcher))
             return server, candidate
         except OSError as exc:
             last_err = exc
             continue
-    raise RuntimeError(f"No free port in {port}..{port + PORT_SCAN_RANGE - 1}: {last_err}")
+    if span == 1:
+        raise RuntimeError(
+            f"Port {port} is busy and pinned (DAVINCI_MCP_PORT / config 'port' "
+            f"is set, so the server will not auto-increment). Free that port or "
+            f"choose another: {last_err}"
+        )
+    raise RuntimeError(f"No free port in {port}..{port + span - 1}: {last_err}")
 
 
 def run_server(resolve, how):
     bridge = ResolveBridge(resolve)
     dispatcher = MCPDispatcher(bridge)
-    server, port = start_http_server(DEFAULT_HOST, DEFAULT_PORT, dispatcher)
+    scan = 1 if PORT_PINNED else PORT_SCAN_RANGE
+    server, port = start_http_server(DEFAULT_HOST, DEFAULT_PORT, dispatcher, scan)
     url = f"http://{DEFAULT_HOST}:{port}/mcp"
 
     log_startup_guide(SERVER_NAME, SERVER_VERSION, how, resolve, url, LOG_PATH)

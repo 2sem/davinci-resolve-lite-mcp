@@ -131,6 +131,59 @@ The Lite container path is detected automatically.
 
 4. Ask Claude to control Resolve.
 
+### Configure the port (stable, recommended)
+
+By default the server listens on `8765` and **auto-increments to `8766`, `8767`,
+… if that port is busy** (another local tool may already hold `8765`). Because
+the winner of that race can change between launches, the URL you registered with
+Claude can drift, surfacing as:
+
+```
+Failed to reconnect to davinci: HTTP 404 at http://127.0.0.1:8765/mcp
+```
+
+To lock the port for good, drop a small JSON config file. **When a port is set
+this way it is *pinned* — the server binds exactly that port and never
+auto-increments**, so you register Claude once and the URL never moves.
+
+Create `~/Movies/davinci-resolve-lite-mcp.config.json`:
+
+```json
+{ "host": "127.0.0.1", "port": 8770 }
+```
+
+> **Why `~/Movies` and not `~/.config`?** The Lite app is sandboxed and can only
+> read its own container, `~/Movies`, and files you pick interactively —
+> `~/.config` is outside the sandbox, so Lite cannot read it (this is the same
+> reason the logfile lives in `~/Movies`). The server also checks
+> `~/.config/davinci-resolve-lite-mcp/config.json` for the **non-sandboxed
+> Studio** build, where that path is conventional.
+
+Then restart the server (Scripts > Utility > **stop_davinci_mcp_server**, then
+**davinci_mcp_server**) and register Claude once at the fixed port:
+
+```bash
+claude mcp add --transport http davinci http://127.0.0.1:8770/mcp
+```
+
+The Console banner confirms the source — look for
+`Port : pinned (from …) — will not auto-increment`.
+
+**Resolution order** (highest priority first): the `DAVINCI_MCP_PORT` /
+`DAVINCI_MCP_HOST` environment variables, then the config file, then the
+built-in defaults. The env vars also pin the port, but a Dock-launched Resolve
+won't see a shell `export`; the config file is the simplest persistent option.
+`DAVINCI_MCP_CONFIG=/path/to.json` forces a specific config file **exclusively**
+— if that path is missing or malformed the server falls back to the built-in
+defaults rather than reading `~/Movies` / XDG.
+
+If the port already drifted and Claude points at the wrong one, re-point it:
+
+```bash
+claude mcp remove davinci
+claude mcp add --transport http davinci http://127.0.0.1:<actual-port>/mcp
+```
+
 ### Stopping
 
 Any of these stops the server:
@@ -142,9 +195,9 @@ Any of these stops the server:
 The menu stop script and `stop.sh` both POST to the server's `/shutdown`
 endpoint, scanning the same port range the server uses on startup.
 
-> The port auto-increments from `8765` if that port is busy. Override the
-> default with the `DAVINCI_MCP_PORT` / `DAVINCI_MCP_HOST` environment
-> variables before launching Resolve.
+> The port auto-increments from `8765` only when it is **not** pinned. To lock
+> it so the URL never moves between launches, see
+> [Configure the port](#configure-the-port-stable-recommended).
 
 ## Tools
 

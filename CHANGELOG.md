@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Persistent port/host config. Drop
+  `~/Movies/davinci-resolve-lite-mcp.config.json` (`{"host": "...", "port": N}`)
+  to pin the listening port. `~/Movies` is used because the sandboxed Lite app
+  cannot read `~/.config` (that XDG path is still honored for the non-sandboxed
+  Studio build, plus a `DAVINCI_MCP_CONFIG` override). Resolution order:
+  `DAVINCI_MCP_PORT`/`DAVINCI_MCP_HOST` env > config file > defaults.
+  `DAVINCI_MCP_CONFIG` is exclusive — a missing/malformed path there falls back
+  to the built-in defaults rather than reading `~/Movies` / XDG.
+
+### Changed
+- A configured port is now **pinned**: the server binds exactly that port and no
+  longer auto-increments to a neighbour, so a registered Claude URL never
+  silently drifts (which showed up as `HTTP 404 at …:8765/mcp` on reconnect).
+  Auto-increment still applies only to the bare default `8765`. The startup
+  banner shows whether the port is pinned and from where (env vs config file),
+  and — when not pinned — prints the concrete steps to pin it (the exact
+  `~/Movies/...config.json` path to create + the `claude mcp add` line), so the
+  Console log alone is enough; no need to open the README.
+- The stop paths (`stop.sh` and `stop_davinci_mcp_server.py`) now resolve the
+  port through the same config (env > file > default), so a config-pinned port
+  outside the default scan window is still reachable.
+
 ## 0.16.0
 
 ### Added
