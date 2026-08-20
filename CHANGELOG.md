@@ -3,6 +3,15 @@
 ## Unreleased
 
 ### Added
+- 6 new tools covering Resolve 20.x/21.0 scripting API additions that work on
+  the free Lite edition: `monitor_growing_file`, `reset_node_colors`,
+  `get_fairlight_presets`, `apply_fairlight_preset`,
+  `disable_background_tasks`, `set_timeline_item_name`. `create_project` now
+  takes an optional `mediaLocationPath`; `render_current_timeline` /
+  `add_render_job` take optional `exportSubtitle` / `subtitleFormat`. The
+  API additions that are Neural Engine / Studio-only (transcription, audio
+  classification, motion-blur removal, Intellisearch/slate analysis, speech
+  generation, voice isolation) were left out — Lite can't run them.
 - Persistent port/host config. Drop
   `~/Movies/davinci-resolve-lite-mcp.config.json` (`{"host": "...", "port": N}`)
   to pin the listening port. `~/Movies` is used because the sandboxed Lite app
