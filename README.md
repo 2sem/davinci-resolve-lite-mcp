@@ -2,6 +2,12 @@
 
 [![test](https://github.com/2sem/davinci-resolve-lite-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/2sem/davinci-resolve-lite-mcp/actions/workflows/test.yml)
 
+<video src="docs/images/demo.mp4" controls muted playsinline width="720"></video>
+
+*Claude builds an opening title in DaVinci Resolve Lite — a gold "GameHelper"
+Text+ node with glow and a zoom-in keyframe reveal — from a plain-language
+request, via `insert_fusion_title` + `style_fusion_title`.*
+
 An [MCP](https://modelcontextprotocol.io) server that lets an AI client such as
 **Claude Code** control **DaVinci Resolve** — including the **free (Lite)
 edition**, which the existing
@@ -23,18 +29,11 @@ Claude Code ──HTTP JSON-RPC (MCP)──▶  127.0.0.1:8765/mcp
                               global `resolve` object → Resolve API
 ```
 
-## Demo
+## Tools
 
-Ask Claude in plain language; it drives Resolve through the tools. For example,
-*"add an opening title that reveals **GameHelper**"* →
-[`insert_fusion_title`](docs/TOOLS.md) + [`style_fusion_title`](docs/TOOLS.md)
-build a Text+ title and edit its Fusion node graph (gold font, glow, a
-zoom-in keyframe reveal):
-
-<video src="docs/images/demo.mp4" controls muted playsinline width="720"></video>
-
-See the [tools reference](docs/TOOLS.md) for the full 157-tool surface —
-editing, color, render, media pool, and Fusion title styling.
+Ask Claude in plain language; it drives Resolve through the tools — see the
+demo above. See the [tools reference](docs/TOOLS.md) for the full 157-tool
+surface — editing, color, render, media pool, and Fusion title styling.
 
 ## Why this works on the free edition
 
