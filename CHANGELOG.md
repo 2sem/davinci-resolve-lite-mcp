@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.17.0
 
 ### Added
 - 6 new tools covering Resolve 20.x/21.0 scripting API additions that work on
