@@ -16,7 +16,7 @@ import json
 import os
 
 SERVER_NAME = "davinci-resolve-lite-mcp"
-SERVER_VERSION = "0.16.0"
+SERVER_VERSION = "0.17.0"
 PROTOCOL_VERSION = "2025-06-18"
 
 LOG_FILENAME = "davinci-resolve-lite-mcp.log"
