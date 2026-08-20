@@ -281,6 +281,23 @@ def set_clip_color(resolve, args):
 
 
 @register(
+    "set_timeline_item_name",
+    "Rename a timeline clip (the name shown on the timeline, independent of "
+    "its underlying media-pool clip name).",
+    {
+        "type": "object",
+        "properties": {**_ITEM_ADDR, "name": {"type": "string"}},
+        "required": ["trackType", "trackIndex", "itemIndex", "name"],
+    },
+)
+def set_timeline_item_name(resolve, args):
+    item = _track_item(resolve, args)
+    if not item.SetName(args["name"]):
+        raise ToolError(f"SetName({args['name']!r}) failed.")
+    return {"ok": True, "item": item.GetName()}
+
+
+@register(
     "add_clip_flag",
     "Add a colored flag to a timeline clip (e.g. Blue, Cyan, Green, Yellow, "
     "Red, Pink, Purple).",

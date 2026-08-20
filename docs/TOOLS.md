@@ -1,8 +1,10 @@
 # Tools reference
 
-157 tools, all exercised live against DaVinci Resolve Lite (or verified on the
-same code path). Every tool call is logged to the Resolve Console and the
-logfile as a single line:
+163 tools, the large majority exercised live against DaVinci Resolve Lite (or
+verified on the same code path); `apply_fairlight_preset` and
+`disable_background_tasks` (added for the Resolve 20.x/21.0 scripting API)
+are pending their first live run. Every tool call is logged to the
+Resolve Console and the logfile as a single line:
 `[davinci-mcp] <name> <args> -> ok|error|EXCEPTION (Nms)`.
 
 > Addressing: timeline clips are addressed by `trackType` + `trackIndex` +
@@ -18,15 +20,18 @@ logfile as a single line:
 | `open_page` | Switch to media/cut/edit/fusion/color/fairlight/deliver |
 | `get_setting` / `set_setting` | Read/write any project or timeline setting |
 | `refresh_lut_list` | Refresh Resolve's LUT list after adding LUT files |
+| `get_fairlight_presets` | List available Fairlight audio mixing presets |
+| `disable_background_tasks` | Disable background tasks for the current session |
 
 ## Projects
 | Tool | What it does |
 |------|--------------|
 | `list_projects` / `load_project` | Browse and load projects |
 | `get_project_info` | Name, framerate, resolution, timeline count |
-| `save_project` / `create_project` / `close_project` / `restore_project` | Project lifecycle |
+| `save_project` / `create_project` / `close_project` / `restore_project` | Project lifecycle (`create_project` takes an optional `mediaLocationPath`) |
 | `get_project_presets` / `set_project_preset` | Project presets |
 | `export_project` / `import_project` | Back up / restore a project (.drp) |
+| `apply_fairlight_preset` | Apply a Fairlight preset to the current timeline |
 
 ## Timelines
 | Tool | What it does |
@@ -71,6 +76,7 @@ logfile as a single line:
 | `get_clip_tags` / `set_clip_color` | Clip color, flags, markers |
 | `add_clip_flag` / `clear_clip_flags` | Clip flags |
 | `add_clip_marker` / `delete_clip_marker` | Per-clip markers |
+| `set_timeline_item_name` | Rename a timeline clip (independent of its media-pool clip name) |
 
 ## Media pool & storage
 | Tool | What it does |
@@ -87,6 +93,7 @@ logfile as a single line:
 | `link_proxy` / `unlink_proxy` / `replace_clip` / `replace_clip_preserve_subclip` | Proxy media & replace |
 | `link_full_resolution_media` / `relink_clips` | Relink full-res / relink by folder |
 | `move_folders` | Move bins into another bin |
+| `monitor_growing_file` | Mark a pool clip as a growing file (in-progress recording) |
 | `export_metadata` | Export clip metadata to CSV |
 | `list_storage_volumes` / `browse_storage` / `add_storage_items_to_pool` | Disk browse + import |
 | `reveal_in_storage` | Reveal a path in Media Storage |
@@ -98,6 +105,7 @@ logfile as a single line:
 | `set_node_lut` / `set_node_enabled` | Apply a LUT to / enable a node |
 | `set_cdl` | Apply an ASC CDL to a node |
 | `reset_grades` | Reset all grades on a clip |
+| `reset_node_colors` | Reset the node-tile color for every node in a clip's node graph |
 | `copy_grade` | Copy a clip's grade to other clips |
 | `list_grade_versions` / `add_grade_version` / `load_grade_version` / `delete_grade_version` | Color versions |
 | `list_color_groups` / `add_color_group` / `delete_color_group` | Color groups |
@@ -122,7 +130,7 @@ logfile as a single line:
 | `get_render_formats` / `set_render_format_codec` | Format + codec |
 | `get_render_mode` / `set_render_mode` | Individual clips vs single clip |
 | `get_render_resolutions` | Valid resolutions for format/codec |
-| `add_render_job` / `render_current_timeline` / `get_render_status` | Queue (no start) / queue + start / progress |
+| `add_render_job` / `render_current_timeline` / `get_render_status` | Queue (no start) / queue + start / progress (both take optional `exportSubtitle` / `subtitleFormat`) |
 | `stop_rendering` / `delete_render_job` | Stop / remove jobs |
 | `get_quick_export_presets` / `quick_export` | Quick Export |
 

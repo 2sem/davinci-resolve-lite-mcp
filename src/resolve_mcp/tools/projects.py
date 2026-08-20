@@ -200,19 +200,44 @@ def save_project(resolve, args):
 
 @register(
     "create_project",
-    "Create and open a new project with a unique name.",
+    "Create and open a new project with a unique name. Optionally set its "
+    "media storage location.",
+    {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "mediaLocationPath": {"type": "string"},
+        },
+        "required": ["name"],
+    },
+)
+def create_project(resolve, args):
+    pm = resolve.GetProjectManager()
+    media_path = args.get("mediaLocationPath")
+    if media_path:
+        project = pm.CreateProject(args["name"], os.path.expanduser(media_path)) if pm else None
+    else:
+        project = pm.CreateProject(args["name"]) if pm else None
+    if not project:
+        raise ToolError(f"CreateProject({args['name']!r}) failed (name not unique?).")
+    return {"ok": True, "created": project.GetName()}
+
+
+@register(
+    "apply_fairlight_preset",
+    "Apply a Fairlight audio mixing preset (by name, from get_fairlight_presets) "
+    "to the current timeline.",
     {
         "type": "object",
         "properties": {"name": {"type": "string"}},
         "required": ["name"],
     },
 )
-def create_project(resolve, args):
-    pm = resolve.GetProjectManager()
-    project = pm.CreateProject(args["name"]) if pm else None
-    if not project:
-        raise ToolError(f"CreateProject({args['name']!r}) failed (name not unique?).")
-    return {"ok": True, "created": project.GetName()}
+def apply_fairlight_preset(resolve, args):
+    project = _require_project(resolve)
+    if not project.ApplyFairlightPresetToCurrentTimeline(args["name"]):
+        raise ToolError(f"ApplyFairlightPresetToCurrentTimeline({args['name']!r}) failed.")
+    return {"ok": True, "preset": args["name"]}
 
 
 @register(

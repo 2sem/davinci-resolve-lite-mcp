@@ -29,6 +29,8 @@ def get_render_presets(resolve, args):
             "preset": {"type": "string"},
             "targetDir": {"type": "string"},
             "customName": {"type": "string"},
+            "exportSubtitle": {"type": "boolean"},
+            "subtitleFormat": {"type": "string"},
         },
     },
 )
@@ -43,6 +45,10 @@ def render_current_timeline(resolve, args):
         settings["TargetDir"] = args["targetDir"]
     if args.get("customName"):
         settings["CustomName"] = args["customName"]
+    if "exportSubtitle" in args:
+        settings["ExportSubtitle"] = bool(args["exportSubtitle"])
+    if args.get("subtitleFormat"):
+        settings["SubtitleFormat"] = args["subtitleFormat"]
     if settings and not project.SetRenderSettings(settings):
         raise ToolError("SetRenderSettings failed.")
     job_id = project.AddRenderJob()
@@ -63,6 +69,8 @@ def render_current_timeline(resolve, args):
             "preset": {"type": "string"},
             "targetDir": {"type": "string"},
             "customName": {"type": "string"},
+            "exportSubtitle": {"type": "boolean"},
+            "subtitleFormat": {"type": "string"},
         },
     },
 )
@@ -76,6 +84,10 @@ def add_render_job(resolve, args):
         settings["TargetDir"] = os.path.expanduser(args["targetDir"])
     if args.get("customName"):
         settings["CustomName"] = args["customName"]
+    if "exportSubtitle" in args:
+        settings["ExportSubtitle"] = bool(args["exportSubtitle"])
+    if args.get("subtitleFormat"):
+        settings["SubtitleFormat"] = args["subtitleFormat"]
     if settings and not project.SetRenderSettings(settings):
         raise ToolError("SetRenderSettings failed.")
     job_id = project.AddRenderJob()

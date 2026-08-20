@@ -454,6 +454,20 @@ def link_full_resolution_media(resolve, args):
 
 
 @register(
+    "monitor_growing_file",
+    "Mark a media-pool clip (by name) as a growing file (e.g. an in-progress "
+    "recording) so Resolve keeps re-reading it as it grows.",
+    {"type": "object", "properties": {"name": {"type": "string"}, "id": {"type": "string"}},
+     "required": []},
+)
+def monitor_growing_file(resolve, args):
+    clip = _pool_clip(resolve, args.get("name"), args.get("id"))
+    if not clip.MonitorGrowingFile():
+        raise ToolError("MonitorGrowingFile failed.")
+    return {"ok": True, "name": clip.GetName()}
+
+
+@register(
     "relink_clips",
     "Relink media-pool clips (by name from the current folder, and/or by id) to "
     "media found under a folder path.",

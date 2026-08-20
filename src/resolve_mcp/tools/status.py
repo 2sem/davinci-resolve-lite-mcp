@@ -43,3 +43,23 @@ def open_page(resolve, args):
     if not resolve.OpenPage(page):
         raise ToolError(f"OpenPage({page!r}) failed.")
     return {"ok": True, "page": page}
+
+
+@register(
+    "get_fairlight_presets",
+    "List the names of available Fairlight audio mixing presets.",
+    None,
+)
+def get_fairlight_presets(resolve, args):
+    return {"presets": resolve.GetFairlightPresets() or []}
+
+
+@register(
+    "disable_background_tasks",
+    "Disable all background tasks for the current Resolve session (e.g. "
+    "auto-render caching), freeing up resources for a heavy scripted job.",
+    None,
+)
+def disable_background_tasks(resolve, args):
+    resolve.DisableBackgroundTasksForCurrentResolveSession()
+    return {"ok": True}

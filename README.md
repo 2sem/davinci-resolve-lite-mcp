@@ -32,7 +32,7 @@ Claude Code ──HTTP JSON-RPC (MCP)──▶  127.0.0.1:8765/mcp
 ## Tools
 
 Ask Claude in plain language; it drives Resolve through the tools — see the
-demo above. See the [tools reference](docs/TOOLS.md) for the full 157-tool
+demo above. See the [tools reference](docs/TOOLS.md) for the full 163-tool
 surface — editing, color, render, media pool, and Fusion title styling.
 
 ## Why this works on the free edition
@@ -198,8 +198,7 @@ endpoint, scanning the same port range the server uses on startup.
 
 ## Tools
 
-**157 tools**, all exercised live against DaVinci Resolve Lite, spanning the
-full pipeline:
+**163 tools**, spanning the full pipeline:
 
 - **Status & navigation** — page switching, project/timeline settings
 - **Projects & timelines** — load/create/duplicate, markers, scene cuts, lifecycle

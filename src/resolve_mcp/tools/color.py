@@ -84,6 +84,23 @@ def reset_grades(resolve, args):
 
 
 @register(
+    "reset_node_colors",
+    "Reset the node color (the UI tint on each node tile, not the grade) for "
+    "every node in a timeline clip's active node graph.",
+    {
+        "type": "object",
+        "properties": dict(_ITEM_ADDR),
+        "required": ["trackType", "trackIndex", "itemIndex"],
+    },
+)
+def reset_node_colors(resolve, args):
+    item, _graph = _node_graph(resolve, args)
+    if not item.ResetAllNodeColors():
+        raise ToolError("ResetAllNodeColors failed.")
+    return {"ok": True, "item": item.GetName()}
+
+
+@register(
     "apply_grade_from_drx",
     "Apply a saved .drx PowerGrade (still) to a timeline clip's node graph. "
     "gradeMode: 0 = no keyframes (default), 1 = source-timecode aligned, "
