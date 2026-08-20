@@ -31,9 +31,7 @@ Ask Claude in plain language; it drives Resolve through the tools. For example,
 build a Text+ title and edit its Fusion node graph (gold font, glow, a
 zoom-in keyframe reveal):
 
-> 📹 **Screen recording coming soon.** To add it: drop a GIF at
-> `docs/images/demo.gif` and replace this line with
-> `![Animated "GameHelper" opening title built by Claude in DaVinci Resolve](docs/images/demo.gif)`.
+<video src="docs/images/demo.mp4" controls muted playsinline width="720"></video>
 
 See the [tools reference](docs/TOOLS.md) for the full 157-tool surface —
 editing, color, render, media pool, and Fusion title styling.
