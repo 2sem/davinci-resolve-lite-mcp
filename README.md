@@ -2,7 +2,8 @@
 
 [![test](https://github.com/2sem/davinci-resolve-lite-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/2sem/davinci-resolve-lite-mcp/actions/workflows/test.yml)
 
-<video src="docs/images/demo.mp4" controls muted playsinline width="720"></video>
+[![Demo: Claude builds a Fusion title in DaVinci Resolve Lite](docs/images/demo-thumb.jpg)](https://github.com/2sem/davinci-resolve-lite-mcp/blob/main/docs/images/demo.mp4)
+<br><sub>▶ click the thumbnail to play (GitHub strips `&lt;video&gt;` from rendered READMEs)</sub>
 
 *Claude builds an opening title in DaVinci Resolve Lite — a gold "GameHelper"
 Text+ node with glow and a zoom-in keyframe reveal — from a plain-language
