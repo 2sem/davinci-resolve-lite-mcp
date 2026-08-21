@@ -1,6 +1,12 @@
 # davinci-resolve-lite-mcp
 
 [![test](https://github.com/2sem/davinci-resolve-lite-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/2sem/davinci-resolve-lite-mcp/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python&logoColor=white)](.github/workflows/test.yml)
+[![Platform: macOS](https://img.shields.io/badge/Platform-macOS-lightgrey?logo=apple&logoColor=white)](#requirements)
+[![DaVinci Resolve: Lite \| Studio](https://img.shields.io/badge/DaVinci%20Resolve-Lite%20%7C%20Studio-E4405F)](#why-this-works-on-the-free-edition)
+[![163 tools](https://img.shields.io/badge/tools-163-brightgreen)](docs/TOOLS.md)
+[![Zero dependencies](https://img.shields.io/badge/dependencies-0-success)](#why-this-works-on-the-free-edition)
 
 https://github.com/user-attachments/assets/8429932f-643b-4131-bdf6-dad0d3399137
 
