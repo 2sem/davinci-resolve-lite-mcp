@@ -2,7 +2,7 @@
 
 [![test](https://github.com/2sem/davinci-resolve-lite-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/2sem/davinci-resolve-lite-mcp/actions/workflows/test.yml)
 
-<video src="docs/images/demo.mp4" controls muted playsinline width="720"></video>
+https://github.com/user-attachments/assets/8429932f-643b-4131-bdf6-dad0d3399137
 
 *Claude builds an opening title in DaVinci Resolve Lite — a gold "GameHelper"
 Text+ node with glow and a zoom-in keyframe reveal — from a plain-language
