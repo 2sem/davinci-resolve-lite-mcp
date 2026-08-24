@@ -154,6 +154,12 @@ The Lite container path is detected automatically.
 
    ![Resolve Console showing per-command davinci-mcp log lines](docs/images/console.png)
 
+   > **Update check.** Like `brew`/CocoaPods, each launch checks PyPI in the
+   > background for a newer release and prints a one-line nudge to the Console
+   > if one exists — never blocks startup, and any failure (offline, PyPI
+   > down) stays silent in the logfile only. Disable with
+   > `DAVINCI_MCP_SKIP_UPDATE_CHECK=1`.
+
 3. Register it with Claude Code (one-time):
 
    ```bash
@@ -314,6 +320,11 @@ stereo/3D, layout & burn-in presets, mattes) — not functional gaps.
 The server binds to `127.0.0.1` only, so it is reachable from your machine
 only. It exposes control of DaVinci Resolve to any local process that can reach
 the port — only run it on a machine you trust.
+
+The one outbound call the server makes on its own is the startup update check
+(a `GET` to PyPI's public JSON API for the current version number — no other
+data sent). Disable it with `DAVINCI_MCP_SKIP_UPDATE_CHECK=1` if you'd rather
+it made none.
 
 ## License
 
