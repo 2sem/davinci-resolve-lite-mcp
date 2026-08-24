@@ -23,6 +23,7 @@ from .config import (
 from .connection import get_resolve
 from .logio import LOG_PATH, log, log_file, log_raw, safe_flush
 from .tools import TOOLS, ToolError
+from .update_check import check_async
 
 
 def log_startup_guide(server_name, version, how, resolve, url, log_path):
@@ -388,6 +389,8 @@ def run_server(resolve, how):
 
     http_thread = threading.Thread(target=server.serve_forever, name="mcp-http", daemon=True)
     http_thread.start()
+
+    check_async(bridge)
 
     try:
         bridge.run_forever()  # blocks on the main thread, executing Resolve calls

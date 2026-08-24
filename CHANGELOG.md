@@ -13,6 +13,10 @@
   auto-spawned by an MCP client: it must run inside Resolve's own Python
   interpreter, started by hand from Resolve's Scripts menu). Points to the
   README via `websiteUrl` for setup instructions.
+- Startup update check (brew/CocoaPods-style): each launch checks PyPI in the
+  background for a newer release and prints a one-line nudge to the Resolve
+  Console if one exists. Best-effort — never blocks startup, any failure stays
+  silent in the logfile. Disable with `DAVINCI_MCP_SKIP_UPDATE_CHECK=1`.
 
 ## 0.17.0
 

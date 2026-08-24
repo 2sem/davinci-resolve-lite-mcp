@@ -28,3 +28,5 @@ jobs:
         run: python tests/test_server.py
       - name: Installer tests (pip console-script install/uninstall)
         run: python tests/test_installer.py
+      - name: Update-check tests (startup PyPI version check, no real network)
+        run: python tests/test_update_check.py
