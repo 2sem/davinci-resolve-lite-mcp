@@ -1,6 +1,7 @@
 # davinci-resolve-lite-mcp
 
 [![test](https://github.com/2sem/davinci-resolve-lite-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/2sem/davinci-resolve-lite-mcp/actions/workflows/test.yml)
+[![PyPI](https://img.shields.io/pypi/v/davinci-resolve-lite-mcp)](https://pypi.org/project/davinci-resolve-lite-mcp/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python&logoColor=white)](CONTRIBUTING.md#ground-rules)
 [![Platform: macOS](https://img.shields.io/badge/Platform-macOS-lightgrey?logo=apple&logoColor=white)](#requirements)
@@ -77,6 +78,15 @@ detection, same copy-vs-symlink logic) — it just reads the files from your
 pip-installed package instead of a git checkout. `davinci-mcp-uninstall`
 reverses it. Either way, the sandbox note below still applies, and you still
 start the server from Resolve's own menu — see [Run](#run).
+
+> **macOS user-install note.** If you see `Defaulting to user installation
+> because normal site-packages is not writeable`, pip installed the console
+> scripts under `$(python3 -m site --user-base)/bin`, which usually isn't on
+> `PATH`. Either run the full path —
+> `"$(python3 -m site --user-base)/bin/davinci-mcp-install"` — or add that
+> `bin` directory to `PATH`. And use `&&`, not `&`, between the two commands:
+> a bare `&` backgrounds `pip install` and races `davinci-mcp-install` before
+> the package exists.
 
 `install.sh` deploys:
 
