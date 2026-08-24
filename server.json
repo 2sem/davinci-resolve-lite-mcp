@@ -1,0 +1,12 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.2sem/davinci-resolve-lite-mcp",
+  "title": "DaVinci Resolve Lite MCP",
+  "description": "Control DaVinci Resolve, including the free Lite edition. Manual setup only — see README.",
+  "repository": {
+    "url": "https://github.com/2sem/davinci-resolve-lite-mcp",
+    "source": "github"
+  },
+  "version": "0.17.0",
+  "websiteUrl": "https://github.com/2sem/davinci-resolve-lite-mcp#readme"
+}

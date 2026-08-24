@@ -11,6 +11,7 @@ Run the full release flow for this repo. Follow it in order; do not skip the tag
 3. **Bump.** In one commit only:
    - `CHANGELOG.md`: rename `## Unreleased` → `## a.b.c`
    - `src/resolve_mcp/config.py`: `SERVER_VERSION = "a.b.c"`
+   - `server.json`: `"version": "a.b.c"`
    - Run `python3 tests/test_server.py` to sanity-check before committing.
    - Commit message: `bump: release a.b.c` — this must be the ONLY commit on this branch.
 
@@ -24,5 +25,6 @@ Run the full release flow for this repo. Follow it in order; do not skip the tag
    - Create the tag and GitHub release together: `gh release create va.b.c --title "va.b.c — <short summary>" --notes-file <patch-note-file> --target main`. Write the release notes to a scratch file first (a `## Patch note (changes since X.Y.Z)` section mirroring the CHANGELOG entry, plus a `## Notes` section citing the constituent PR(s) and test status) — match the tone/format of prior releases (`gh release view v0.16.0` for reference).
    - Confirm with `gh release view va.b.c` and report the release URL back to the user.
    - Publishing the release triggers `.github/workflows/publish.yml`, which auto-publishes to PyPI via Trusted Publishing (no token handling needed). Check it succeeded: `gh run list --workflow=publish.yml --limit 1`. If PyPI's trusted-publisher hasn't been configured yet (one-time manual step on pypi.org — see CONTRIBUTING.md's Release flow section), this run will fail; that does not block the GitHub release, just note it to the user.
+   - MCP Registry: run `mcp-publisher publish` from the repo root (needs an active `mcp-publisher login github` session — the user's GitHub identity, not something to log in as on their behalf). Registry versions are immutable, so this is required every release, not automated in CI. If not logged in, tell the user rather than attempting the OAuth device flow silently.
 
 Do not consider the release finished until step 6's tag + release exist — a merged bump commit alone is not a release.
