@@ -2,6 +2,7 @@
 
 [![test](https://github.com/2sem/davinci-resolve-lite-mcp/actions/workflows/test.yml/badge.svg)](https://github.com/2sem/davinci-resolve-lite-mcp/actions/workflows/test.yml)
 [![PyPI](https://img.shields.io/pypi/v/davinci-resolve-lite-mcp)](https://pypi.org/project/davinci-resolve-lite-mcp/)
+[![MCP Registry](https://img.shields.io/badge/MCP%20Registry-listed-6f42c1)](server.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python&logoColor=white)](CONTRIBUTING.md#ground-rules)
 [![Platform: macOS](https://img.shields.io/badge/Platform-macOS-lightgrey?logo=apple&logoColor=white)](#requirements)
@@ -87,6 +88,15 @@ start the server from Resolve's own menu — see [Run](#run).
 > `bin` directory to `PATH`. And use `&&`, not `&`, between the two commands:
 > a bare `&` backgrounds `pip install` and races `davinci-mcp-install` before
 > the package exists.
+
+Also listed on the [MCP Registry](https://registry.modelcontextprotocol.io) as
+`io.github.2sem/davinci-resolve-lite-mcp`
+([verify](https://registry.modelcontextprotocol.io/v0.1/servers?search=davinci-resolve-lite-mcp)) —
+for discoverability only. The listing is metadata-only (no auto-install
+`packages`/`remotes` entry): this server can't be spawned by an MCP client the
+way a typical registry server can, since it must run inside Resolve's own
+embedded Python interpreter, started by hand from the Scripts menu. Install it
+one of the two ways above.
 
 `install.sh` deploys:
 
