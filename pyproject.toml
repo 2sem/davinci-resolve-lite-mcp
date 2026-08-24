@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "davinci-resolve-lite-mcp"
+dynamic = ["version"]
+description = "MCP server that lets an AI client control DaVinci Resolve, including the free Lite edition"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.9"
+authors = [{ name = "2sem" }]
+keywords = ["mcp", "davinci-resolve", "model-context-protocol", "claude"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS :: MacOS X",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Video :: Non-Linear Editor",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/2sem/davinci-resolve-lite-mcp"
+Issues = "https://github.com/2sem/davinci-resolve-lite-mcp/issues"
+Changelog = "https://github.com/2sem/davinci-resolve-lite-mcp/blob/main/CHANGELOG.md"
+
+[project.scripts]
+davinci-mcp-install = "resolve_mcp.installer:install_main"
+davinci-mcp-uninstall = "resolve_mcp.installer:uninstall_main"
+
+[tool.setuptools.dynamic]
+version = { attr = "resolve_mcp.config.SERVER_VERSION" }
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+py-modules = ["davinci_mcp_server", "stop_davinci_mcp_server"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["resolve_mcp*"]

@@ -65,6 +65,19 @@ cd davinci-resolve-lite-mcp
 ./install.sh
 ```
 
+Or via pip, if you'd rather not clone the repo:
+
+```bash
+pip install davinci-resolve-lite-mcp
+davinci-mcp-install
+```
+
+`davinci-mcp-install` does exactly what `install.sh` does (same Lite/Studio
+detection, same copy-vs-symlink logic) — it just reads the files from your
+pip-installed package instead of a git checkout. `davinci-mcp-uninstall`
+reverses it. Either way, the sandbox note below still applies, and you still
+start the server from Resolve's own menu — see [Run](#run).
+
 `install.sh` deploys:
 
 * the two launcher scripts into `Fusion/Scripts/Utility` (a folder Resolve scans
