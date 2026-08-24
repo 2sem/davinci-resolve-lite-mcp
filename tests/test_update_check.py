@@ -8,6 +8,7 @@ import os
 import ssl
 import sys
 import tempfile
+import urllib.error
 import urllib.request
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -93,14 +94,17 @@ class _FakeResponse:
 
 def test_fetch_latest_version_falls_back_on_cert_error():
     """Mirrors the real-world failure: DaVinci Resolve's required Python
-    framework ships with no CA bundle, so the first (verified) attempt raises
-    SSLCertVerificationError. See fallbacks/13-embedded-python-no-cert-bundle.md."""
+    framework ships with no CA bundle, so the first (verified) attempt fails.
+    urlopen() never raises ssl.SSLCertVerificationError directly — it wraps it
+    in a urllib.error.URLError (.reason holds the original) — this test caught
+    a real bug where the fallback matched on the unwrapped type and never
+    fired. See fallbacks/13-embedded-python-no-cert-bundle.md."""
     calls = []
 
     def fake_urlopen(_request, timeout=None, context=None):  # noqa: ARG001
         calls.append(context)
         if context is None:
-            raise ssl.SSLCertVerificationError("cert error")
+            raise urllib.error.URLError(ssl.SSLCertVerificationError("cert error"))
         return _FakeResponse()
 
     original_urlopen = urllib.request.urlopen
@@ -117,6 +121,27 @@ def test_fetch_latest_version_falls_back_on_cert_error():
     print("PASS: fetch_latest_version falls back on cert-verification failure")
 
 
+def test_fetch_latest_version_does_not_swallow_other_url_errors():
+    """A non-cert URLError (e.g. genuinely offline) must propagate, not be
+    mistaken for the CA-bundle-missing case."""
+
+    def fake_urlopen(_request, timeout=None, context=None):  # noqa: ARG001
+        raise urllib.error.URLError(OSError("network unreachable"))
+
+    original_urlopen = urllib.request.urlopen
+    urllib.request.urlopen = fake_urlopen
+    try:
+        try:
+            update_check._fetch_latest_version()
+        except urllib.error.URLError:
+            pass
+        else:
+            need(False, "expected the non-cert URLError to propagate")
+    finally:
+        urllib.request.urlopen = original_urlopen
+    print("PASS: fetch_latest_version does not swallow non-cert URLErrors")
+
+
 def need(cond, msg="assertion failed"):
     if not cond:
         raise AssertionError(msg)
@@ -125,6 +150,7 @@ def need(cond, msg="assertion failed"):
 def main():
     test_version_tuple_and_is_newer()
     test_fetch_latest_version_falls_back_on_cert_error()
+    test_fetch_latest_version_does_not_swallow_other_url_errors()
     test_run_reports_newer_version()
     test_run_stays_quiet_when_up_to_date()
     test_run_swallows_network_failure()

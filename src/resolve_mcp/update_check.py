@@ -11,6 +11,7 @@ import json
 import os
 import ssl
 import threading
+import urllib.error
 import urllib.request
 
 from .config import SERVER_NAME, SERVER_VERSION
@@ -43,7 +44,13 @@ def _fetch_latest_version():
     try:
         with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
             return json.load(response)["info"]["version"]
-    except ssl.SSLCertVerificationError:
+    except urllib.error.URLError as exc:
+        # urlopen() never raises ssl.SSLCertVerificationError directly — it
+        # wraps whatever OSError/SSLError happened during connect into a
+        # URLError, with the original exception as .reason. Catching the
+        # unwrapped SSLCertVerificationError here would silently never match.
+        if not isinstance(exc.reason, ssl.SSLCertVerificationError):
+            raise
         # DaVinci Resolve's scripting API links against a specific python.org
         # framework build (see fallbacks/), whose macOS installer never
         # configures a CA bundle unless "Install Certificates.command" is run

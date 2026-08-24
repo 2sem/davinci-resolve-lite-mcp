@@ -29,11 +29,32 @@ and 3.12 frameworks present on a real dev machine — both empty.
 For low-stakes cases (a public, non-sensitive, read-only value that's only
 ever used for display text, never executed or trusted for anything else — see
 `update_check._fetch_latest_version`): try a normal verified request first,
-and only on `ssl.SSLCertVerificationError` fall back to
+and only on a cert-verification failure fall back to
 `ssl._create_unverified_context()`. Log the fallback (file-only, not Console)
 so it's visible in `~/Movies/davinci-resolve-lite-mcp.log` without being noisy,
 and mention `Install Certificates.command` as the real fix for anyone who
 wants full verification.
+
+**Gotcha within the gotcha**: `urllib.request.urlopen()` never raises
+`ssl.SSLCertVerificationError` directly on a cert failure — it catches the
+underlying `OSError`/`SSLError` during connect and re-raises it wrapped as
+`urllib.error.URLError`, with the original exception on `.reason`. Matching
+`except ssl.SSLCertVerificationError` on the call directly silently never
+fires; the first attempt at this fix shipped exactly that bug; live-testing
+against the real Resolve process (not just the mocked unit test) caught it.
+Correct form:
+
+```python
+except urllib.error.URLError as exc:
+    if not isinstance(exc.reason, ssl.SSLCertVerificationError):
+        raise
+    ...  # fall back to an unverified context
+```
+
+If you write a test for this, mock `urlopen` to raise the *wrapped* form
+(`urllib.error.URLError(ssl.SSLCertVerificationError(...))`), not the bare
+exception — a mock of the bare exception passes even when the real code is
+broken, which is exactly what happened here.
 
 For anything security-sensitive, do **not** apply this pattern — this project
 has no other outbound HTTPS calls, and any future one carrying meaningful data
