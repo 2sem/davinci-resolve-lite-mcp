@@ -23,5 +23,6 @@ Run the full release flow for this repo. Follow it in order; do not skip the tag
    - `git checkout main && git pull --ff-only`
    - Create the tag and GitHub release together: `gh release create va.b.c --title "va.b.c — <short summary>" --notes-file <patch-note-file> --target main`. Write the release notes to a scratch file first (a `## Patch note (changes since X.Y.Z)` section mirroring the CHANGELOG entry, plus a `## Notes` section citing the constituent PR(s) and test status) — match the tone/format of prior releases (`gh release view v0.16.0` for reference).
    - Confirm with `gh release view va.b.c` and report the release URL back to the user.
+   - Publishing the release triggers `.github/workflows/publish.yml`, which auto-publishes to PyPI via Trusted Publishing (no token handling needed). Check it succeeded: `gh run list --workflow=publish.yml --limit 1`. If PyPI's trusted-publisher hasn't been configured yet (one-time manual step on pypi.org — see CONTRIBUTING.md's Release flow section), this run will fail; that does not block the GitHub release, just note it to the user.
 
 Do not consider the release finished until step 6's tag + release exist — a merged bump commit alone is not a release.

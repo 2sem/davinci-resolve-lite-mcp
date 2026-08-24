@@ -19,5 +19,12 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Byte-compile (stdlib only, no deps)
         run: python -m py_compile src/davinci_mcp_server.py src/stop_davinci_mcp_server.py src/resolve_mcp/*.py src/resolve_mcp/tools/*.py
-      - name: Offline tests (import + 149 tools + dispatcher + validation)
+      - name: Build check (packaging metadata, sdist + wheel)
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          twine check dist/*
+      - name: Offline tests (import + 163 tools + dispatcher + validation)
         run: python tests/test_server.py
+      - name: Installer tests (pip console-script install/uninstall)
+        run: python tests/test_installer.py

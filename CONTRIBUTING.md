@@ -165,6 +165,17 @@ editing, restart the server from the Resolve menu.
    sections) and bump `SERVER_VERSION` in `src/resolve_mcp/config.py`.
 3. Tag and publish: `git tag -a vX.Y.Z` + `gh release create vX.Y.Z`.
 
+Publishing the GitHub release (step 3) triggers `.github/workflows/publish.yml`,
+which builds and uploads the package to PyPI via
+[Trusted Publishing](https://docs.pypi.org/trusted-publishers/) (OIDC — no
+stored token). The package version comes from `SERVER_VERSION`
+(`pyproject.toml` reads it dynamically), so step 2 is what actually sets the
+PyPI version too. **One-time setup required** before the first release after
+this is added: register the project on PyPI and add this repo's
+`.github/workflows/publish.yml` (environment `pypi`) as a trusted publisher —
+see the docs link above. Until that's done, `publish.yml` will fail; it does
+not block the GitHub release itself.
+
 Keep `README.md` and `docs/TOOLS.md` in sync with the tool count when you add or
 remove a tool.
 

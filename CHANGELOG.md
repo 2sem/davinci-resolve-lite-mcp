@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- PyPI packaging (`pyproject.toml`, zero runtime deps) with a `davinci-mcp-install`
+  / `davinci-mcp-uninstall` console-script pair that mirrors `install.sh` /
+  `uninstall.sh` for `pip install davinci-resolve-lite-mcp` users. Publishing a
+  GitHub release now auto-publishes to PyPI via Trusted Publishing
+  (`.github/workflows/publish.yml`, one-time manual setup on pypi.org required).
+
 ## 0.17.0
 
 ### Added
