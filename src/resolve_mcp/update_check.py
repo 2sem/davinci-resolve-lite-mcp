@@ -9,6 +9,7 @@ the logfile only. Set DAVINCI_MCP_SKIP_UPDATE_CHECK=1 to disable outright.
 
 import json
 import os
+import ssl
 import threading
 import urllib.request
 
@@ -39,9 +40,29 @@ def _fetch_latest_version():
         PYPI_URL,
         headers={"User-Agent": "{0}/{1}".format(SERVER_NAME, SERVER_VERSION)},
     )
-    with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
-        data = json.load(response)
-    return data["info"]["version"]
+    try:
+        with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
+            return json.load(response)["info"]["version"]
+    except ssl.SSLCertVerificationError:
+        # DaVinci Resolve's scripting API links against a specific python.org
+        # framework build (see fallbacks/), whose macOS installer never
+        # configures a CA bundle unless "Install Certificates.command" is run
+        # by hand — nobody does, since the framework exists solely for Resolve.
+        # In practice this means EVERY install hits this on the first call.
+        # Falling back to an unverified request rather than disabling the
+        # feature outright: the only data involved is a public version string
+        # used solely for display text, never executed or trusted otherwise —
+        # low enough stakes to degrade gracefully instead of going silent.
+        log_file(
+            "[davinci-mcp] update check: local CA bundle missing, retrying "
+            "without certificate verification (run that Python framework's "
+            "'Install Certificates.command' for full TLS verification)"
+        )
+        unverified = ssl._create_unverified_context()
+        with urllib.request.urlopen(
+            request, timeout=TIMEOUT_SECONDS, context=unverified
+        ) as response:
+            return json.load(response)["info"]["version"]
 
 
 def _run(bridge):

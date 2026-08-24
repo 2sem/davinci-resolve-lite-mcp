@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- Startup update check (added in 0.18.0) failed silently on essentially every
+  install: DaVinci Resolve's required Python framework ships with no CA
+  bundle, so the HTTPS request to PyPI always raised
+  `CERTIFICATE_VERIFY_FAILED`. Now falls back to an unverified request
+  specifically on that error (the only data involved is a public version
+  string used for display text, never executed or trusted otherwise) instead
+  of failing every time. See `fallbacks/13-embedded-python-no-cert-bundle.md`.
+
 ## 0.18.0
 
 ### Added

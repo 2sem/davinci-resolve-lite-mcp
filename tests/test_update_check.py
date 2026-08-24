@@ -5,8 +5,10 @@ Run:  python3 tests/test_update_check.py
 """
 
 import os
+import ssl
 import sys
 import tempfile
+import urllib.request
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(REPO, "src"))
@@ -78,6 +80,43 @@ def test_run_swallows_network_failure():
     print("PASS: run swallows network failure without touching Console")
 
 
+class _FakeResponse:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_exc):
+        return False
+
+    def read(self):
+        return b'{"info": {"version": "1.2.3"}}'
+
+
+def test_fetch_latest_version_falls_back_on_cert_error():
+    """Mirrors the real-world failure: DaVinci Resolve's required Python
+    framework ships with no CA bundle, so the first (verified) attempt raises
+    SSLCertVerificationError. See fallbacks/13-embedded-python-no-cert-bundle.md."""
+    calls = []
+
+    def fake_urlopen(_request, timeout=None, context=None):  # noqa: ARG001
+        calls.append(context)
+        if context is None:
+            raise ssl.SSLCertVerificationError("cert error")
+        return _FakeResponse()
+
+    original_urlopen = urllib.request.urlopen
+    urllib.request.urlopen = fake_urlopen
+    try:
+        version = update_check._fetch_latest_version()
+    finally:
+        urllib.request.urlopen = original_urlopen
+
+    need(version == "1.2.3")
+    need(len(calls) == 2, "expected a verified attempt then an unverified fallback")
+    need(calls[0] is None, "first attempt should use the default (verified) context")
+    need(calls[1] is not None, "fallback attempt should pass an explicit context")
+    print("PASS: fetch_latest_version falls back on cert-verification failure")
+
+
 def need(cond, msg="assertion failed"):
     if not cond:
         raise AssertionError(msg)
@@ -85,6 +124,7 @@ def need(cond, msg="assertion failed"):
 
 def main():
     test_version_tuple_and_is_newer()
+    test_fetch_latest_version_falls_back_on_cert_error()
     test_run_reports_newer_version()
     test_run_stays_quiet_when_up_to_date()
     test_run_swallows_network_failure()
