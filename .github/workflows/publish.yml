@@ -3,6 +3,7 @@ name: publish
 on:
   release:
     types: [published]
+  workflow_dispatch: # manual run, e.g. to publish the current version without cutting a new release
 
 jobs:
   pypi:
