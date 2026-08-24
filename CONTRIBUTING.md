@@ -179,6 +179,12 @@ not block the GitHub release itself.
 Keep `README.md` and `docs/TOOLS.md` in sync with the tool count when you add or
 remove a tool.
 
+`server.json`'s `version` field should be bumped to match `SERVER_VERSION` as
+part of step 2, and republished after the release with `mcp-publisher publish`
+(MCP Registry versions are immutable once published, so each release needs a
+fresh `mcp-publisher publish` — there's no automated CI step for this since it
+requires the maintainer's own `mcp-publisher login github` session).
+
 ## Documented gotchas
 
 Before debugging anything that smells environmental (sandbox, stdout, thread

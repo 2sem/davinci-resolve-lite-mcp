@@ -8,6 +8,11 @@
   `uninstall.sh` for `pip install davinci-resolve-lite-mcp` users. Publishing a
   GitHub release now auto-publishes to PyPI via Trusted Publishing
   (`.github/workflows/publish.yml`, one-time manual setup on pypi.org required).
+- `server.json` for the [MCP Registry](https://registry.modelcontextprotocol.io)
+  — metadata-only listing (no `packages`/`remotes`, since this server can't be
+  auto-spawned by an MCP client: it must run inside Resolve's own Python
+  interpreter, started by hand from Resolve's Scripts menu). Points to the
+  README via `websiteUrl` for setup instructions.
 
 ## 0.17.0
 
