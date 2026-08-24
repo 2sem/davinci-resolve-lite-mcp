@@ -10,6 +10,11 @@
   specifically on that error (the only data involved is a public version
   string used for display text, never executed or trusted otherwise) instead
   of failing every time. See `fallbacks/13-embedded-python-no-cert-bundle.md`.
+  (`urllib.request.urlopen` wraps the underlying `SSLCertVerificationError` in
+  a `URLError` rather than raising it directly — the first attempt at this fix
+  matched on the unwrapped type and never actually fired; caught by testing
+  the mock against real `urlopen` wrapping behavior, not just the assumed
+  shape.)
 
 ## 0.18.0
 
