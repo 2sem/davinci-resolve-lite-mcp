@@ -6,9 +6,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python&logoColor=white)](CONTRIBUTING.md#ground-rules)
 [![Platform: macOS](https://img.shields.io/badge/Platform-macOS-lightgrey?logo=apple&logoColor=white)](#requirements)
-[![DaVinci Resolve: Lite \| Studio](https://img.shields.io/badge/DaVinci%20Resolve-Lite%20%7C%20Studio-E4405F)](#why-this-works-on-the-free-edition)
+[![DaVinci Resolve: Lite \| Studio](https://img.shields.io/badge/DaVinci%20Resolve-Lite%20%7C%20Studio-E4405F)](#why-this-works-on-compatible-free-editions)
 [![163 tools](https://img.shields.io/badge/tools-163-brightgreen)](docs/TOOLS.md)
-[![Zero dependencies](https://img.shields.io/badge/dependencies-0-success)](#why-this-works-on-the-free-edition)
+[![Zero dependencies](https://img.shields.io/badge/dependencies-0-success)](#why-this-works-on-compatible-free-editions)
 
 https://github.com/user-attachments/assets/8429932f-643b-4131-bdf6-dad0d3399137
 
@@ -17,8 +17,8 @@ Text+ node with glow and a zoom-in keyframe reveal — from a plain-language
 request, via `insert_fusion_title` + `style_fusion_title`.*
 
 An [MCP](https://modelcontextprotocol.io) server that lets an AI client such as
-**Claude Code** control **DaVinci Resolve** — including the **free (Lite)
-edition**, which the existing
+**Claude Code** control **DaVinci Resolve** — including **free (Lite) builds
+that still allow Python menu scripts**, which the existing
 [davinci-resolve-mcp](https://github.com/samuelgursky/davinci-resolve-mcp)
 project cannot drive.
 
@@ -43,10 +43,10 @@ Ask Claude in plain language; it drives Resolve through the tools — see the
 demo above. See the [tools reference](docs/TOOLS.md) for the full 163-tool
 surface — editing, color, render, media pool, and Fusion title styling.
 
-## Why this works on the free edition
+## Why this works on compatible free editions
 
-* Free Resolve permits scripts run from its **Scripts menu** (only *external*
-  network scripting is restricted).
+* Compatible free Resolve builds permit Python scripts run from the
+  **Scripts menu** (only *external* network scripting is restricted).
 * A menu script gets the `resolve` object for free and may run a long-lived
   loop — long enough to host a server.
 * The sandboxed Lite app ships the `com.apple.security.network.server`
@@ -56,8 +56,25 @@ surface — editing, color, render, media pool, and Fusion title styling.
 
 ## Requirements
 
-* macOS with DaVinci Resolve (Lite/free or Studio).
+* macOS with DaVinci Resolve Studio, or a DaVinci Resolve Lite/free build that
+  still exposes Python scripts in **Workspace > Scripts**.
 * Claude Code (or any MCP client that speaks the Streamable HTTP transport).
+
+> [!WARNING]
+> **DaVinci Resolve Lite 21.1+ compatibility issue:** Blackmagic's
+> [DaVinci Resolve 21.1 release notes](https://forum.blackmagicdesign.com/viewtopic.php?f=21&t=239823)
+> and current user reports indicate that the free/App Store Lite build may block
+> Python menu scripts. When this happens, **Workspace > Scripts** opens but its
+> category folders (Utility, Comp, Edit, Color, Deliver) are all empty, even
+> though the MCP files are installed in the correct `Fusion/Scripts/Utility`
+> folder.
+>
+> This server must be launched from Resolve as a Python menu script. If your
+> Lite build blocks Python scripts, reinstalling this project will not fix the
+> empty menu. Use a pre-21.1 Lite build that still allows Python menu scripts,
+> or use a Studio/non-blocked build. The Lua Console may still open, but that is
+> not enough: if `bmd.scriptapp("Resolve")` returns `nil`, the Resolve scripting
+> object is unavailable there too.
 
 ## Install
 
@@ -172,6 +189,46 @@ The Lite container path is detected automatically.
    picks up the `davinci` server.
 
 4. Ask Claude to control Resolve.
+
+### Troubleshooting: Workspace > Scripts is empty
+
+If **Workspace > Scripts** shows the expected category folders but every folder
+is empty, Resolve is not loading menu scripts. Check this before reinstalling:
+
+```mermaid
+flowchart TD
+  A[Install MCP scripts] --> B[Open Resolve]
+  B --> C{Workspace > Scripts has entries?}
+  C -->|Yes| D[Run Utility > davinci_mcp_server]
+  C -->|No, all categories empty| E[Resolve is not loading Python menu scripts]
+  E --> F{Lite 21.1+ / App Store build?}
+  F -->|Yes| G[Use pre-21.1 Lite or Studio/non-blocked build]
+  F -->|No| H[Enable scripting in Preferences and restart Resolve]
+```
+
+- On **DaVinci Resolve Studio / builds with the scripting preference**, set
+  **Preferences > System > General > External scripting using** to **Local** or
+  **Network**, save, then fully restart Resolve.
+- On **DaVinci Resolve Lite 21.1+ / App Store builds where Python is blocked**
+  (see Blackmagic's [21.1 release notes](https://forum.blackmagicdesign.com/viewtopic.php?f=21&t=239823)),
+  the preference may be unavailable and the Scripts menu stays empty. This MCP
+  server cannot start on those builds because it requires Python menu-script
+  execution inside Resolve.
+- If **Workspace > Console** still shows a `Lua>` prompt, that only proves the
+  Lua console exists. You can check whether the Resolve scripting object is
+  available with:
+
+  ```lua
+  print("lua ok")
+  resolve = bmd.scriptapp("Resolve")
+  print(resolve)
+  ```
+
+  If the second line prints `nil`, the current Lite build is not exposing the
+  Resolve scripting object through Lua either.
+- The hidden `Fusion/Scripts/MCP` folder is not supposed to appear in the menu;
+  only `davinci_mcp_server` and `stop_davinci_mcp_server` should appear under
+  **Utility** on compatible builds.
 
 ### Configure the port (stable, recommended)
 
