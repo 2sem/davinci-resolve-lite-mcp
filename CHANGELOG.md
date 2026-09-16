@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.18.1
+
+### Documentation
+- Warn that DaVinci Resolve Lite 21.1+ / current App Store builds may block
+  Python menu scripts, leaving **Workspace > Scripts** categories empty even
+  when installation succeeds. Documented the impact and fallback options in the
+  README troubleshooting flow, with a link to Blackmagic's 21.1 release notes
+  and a Lua Console check for `bmd.scriptapp("Resolve")` returning `nil`.
+
 ### Fixed
 - Startup update check (added in 0.18.0) failed silently on essentially every
   install: DaVinci Resolve's required Python framework ships with no CA
