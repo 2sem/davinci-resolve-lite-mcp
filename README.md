@@ -9,6 +9,9 @@
 [![DaVinci Resolve: Lite \| Studio](https://img.shields.io/badge/DaVinci%20Resolve-Lite%20%7C%20Studio-E4405F)](#why-this-works-on-compatible-free-editions)
 [![163 tools](https://img.shields.io/badge/tools-163-brightgreen)](docs/TOOLS.md)
 [![Zero dependencies](https://img.shields.io/badge/dependencies-0-success)](#why-this-works-on-compatible-free-editions)
+![Lite 21.1+ Python blocked](https://img.shields.io/badge/Lite_21.1%2B-Python_blocked-red)
+
+> **Unavailable on DaVinci Resolve Lite 21.1+ (App Store)** — Python menu scripts are blocked; the MCP server cannot start. Works on pre-21.1 Lite or Studio.
 
 https://github.com/user-attachments/assets/8429932f-643b-4131-bdf6-dad0d3399137
 
